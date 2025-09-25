@@ -156,7 +156,10 @@ struct CalendarView: View {
                                 let circleColor: Color = hasConflict(on: date) ? conflictIntensity(on: date).color : .clear
                                 Circle()
                                     .fill(circleColor)
-//                                    .stroke(hasConflict(on: date) ? circleColor : Color.gray.opacity(0.2), lineWidth: 2)
+                                    .stroke(
+                                        selectedConflict != nil && Calendar.current.isDate(date, inSameDayAs: selectedConflict!.date!) ? Color.gray : Color.gray.opacity(0.5),
+                                                                                    lineWidth: selectedConflict != nil && Calendar.current.isDate(date, inSameDayAs: selectedConflict!.date!) ? 3 : 0
+                                                                                )
                                     .frame(width: 40, height: 40)
                                 
                                 Text(hasConflict(on: date) ? conflictEmoji(on: date) : "\(calendar.component(.day, from: date))")
@@ -202,47 +205,12 @@ struct CalendarView: View {
                       )
                       .padding(.horizontal)
                   }
-//            // Conflict Details
-//            if let selectedDate = selectedDate,
-//               let conflict = conflicts.first(where: { Calendar.current.isDate($0.date!, inSameDayAs: selectedDate) }) {
-//                VStack(alignment: .leading, spacing: 8) {
-//                    HStack {
-//                        Text("Date:")
-//                            .font(.headline)
-//                            .foregroundColor(.gray)
-//                        Text(detailDateFormatter.string(from: selectedDate))
-//                            .font(.body)
-//                    }
-//                    HStack {
-//                        Text("Intensity:")
-//                            .font(.headline)
-//                            .foregroundColor(.gray)
-//                        Text(ConflictIntensity(string: conflict.intensity)?.displayName ?? "Unknown")
-//                            .font(.body)
-//                    }
-//                    VStack(alignment: .leading) {
-//                        Text("Note:")
-//                            .font(.headline)
-//                            .foregroundColor(.gray)
-//                        Text(conflict.notes ?? "")
-//                            .font(.body)
-//                            .multilineTextAlignment(.leading)
-//                            .frame(maxWidth: .infinity, alignment: .leading)
-//                    }
-//                }
-//                .padding()
-//                .background(
-//                    RoundedRectangle(cornerRadius: 12)
-//                        .fill(Color("White").opacity(0.8))
-//                        .stroke(Color.gray.opacity(0.5), lineWidth: 1)
-//                )
-//                .padding(.horizontal)
-//            }
+
             
             Spacer()
         }
         .onChange(of: currentMonth) { _, _ in
-               selectedDate = nil // Hide details when navigating to a new month
+            selectedConflict = nil // Hide details when navigating to a new month
            }
     
     }
