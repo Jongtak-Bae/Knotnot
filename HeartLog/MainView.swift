@@ -5,6 +5,7 @@ import UIKit
 
 struct MainView: View {
     @Environment(\.managedObjectContext) private var viewContext
+    @EnvironmentObject private var conflictManager: ConflictManager
     @FetchRequest(
         sortDescriptors: [NSSortDescriptor(keyPath: \Conflict.date, ascending: true)],
         animation: .default)
@@ -63,7 +64,7 @@ struct MainView: View {
                                         conflicts: conflicts,
                                         selectedDateIndex: $selectedDateIndex,
                                         scrollPosition: $scrollPosition,
-                                        onTap: { saveConflictForTap(index: index, date: date) }
+                                        onTap: { toggleConflictForDate(date: date) }
                                     )
                                     .containerRelativeFrame(.horizontal)
                                     .scrollTransition { content, phase in
@@ -100,11 +101,21 @@ struct MainView: View {
                     SteppedSlider(value: $intensity)
                         .frame(width: 150, height: 56)
                         .onChange(of: intensity) {
-                            // Only save if a conflict exists or user intends to create one
-                            if conflicts.contains(where: { Calendar.current.isDate($0.date!, inSameDayAs: pastFiveDates[centeredIndex]) }) {
-                                saveConflictForCenteredDate(notes: userText)
-                            }
-                        }
+                                                          Task {
+                                                              do {
+                                                                  if try await conflictManager.fetchConflict(for: pastFiveDates[centeredIndex]) != nil {
+                                                                      try await conflictManager.saveConflict(
+                                                                          date: pastFiveDates[centeredIndex],
+                                                                          person: selectedPerson,
+                                                                          notes: userText,
+                                                                          intensity: intensity
+                                                                      )
+                                                                  }
+                                                              } catch {
+                                                                  print("Error saving conflict: \(error)")
+                                                              }
+                                                          }
+                                                      }
                 }
                 .padding(.top, 120)
                 
@@ -182,14 +193,25 @@ struct MainView: View {
         )
         .ignoresSafeArea()
         .sheet(isPresented: $isSheetPresented) {
-            NoteSheet(
-                userText: $userText,
-                isPresented: $isSheetPresented,
-                onSave: { notes in
-                    saveConflictForCenteredDate(notes: notes)
-                }
-            )
-        }
+                        NoteSheet(
+                            userText: $userText,
+                            isPresented: $isSheetPresented,
+                            onSave: { notes in
+                                Task {
+                                    do {
+                                        try await conflictManager.saveConflict(
+                                            date: pastFiveDates[centeredIndex],
+                                            person: selectedPerson,
+                                            notes: notes,
+                                            intensity: intensity
+                                        )
+                                    } catch {
+                                        print("Error saving conflict: \(error)")
+                                    }
+                                }
+                            }
+                        )
+                    }
     }
 
     // MARK: - Functions
@@ -211,60 +233,20 @@ struct MainView: View {
         return formatter.string(from: date)
     }
 
-    private func saveConflictForCenteredDate(notes: String) {
-        let date = pastFiveDates[centeredIndex]
-        if let existingConflict = conflicts.first(where: { Calendar.current.isDate($0.date!, inSameDayAs: date) }) {
-            viewContext.delete(existingConflict)
-        }
-        let newConflict = Conflict(context: viewContext)
-        newConflict.id = UUID()
-        newConflict.date = date
-        newConflict.person = selectedPerson
-        newConflict.notes = notes
-        newConflict.intensity = intensity.stringValue
-        do {
-            try viewContext.save()
-        } catch {
-            print("Error saving conflict: \(error)")
-        }
-    }
-
-    private func saveSelectedPersonForCenteredDate() {
-        let date = pastFiveDates[centeredIndex]
-        if let existingConflict = conflicts.first(where: { Calendar.current.isDate($0.date!, inSameDayAs: date) }) {
-            viewContext.delete(existingConflict)
-        }
-        let newConflict = Conflict(context: viewContext)
-        newConflict.id = UUID()
-        newConflict.date = date
-        newConflict.person = selectedPerson
-        newConflict.notes = userText
-        newConflict.intensity = intensity.stringValue
-        do {
-            try viewContext.save()
-        } catch {
-            print("Error saving conflict: \(error)")
-        }
-    }
-
-    private func saveConflictForTap(index: Int, date: Date) {
-        // Toggle conflict: if exists, delete; if not, create with current intensity
-        if let existingConflict = conflicts.first(where: { Calendar.current.isDate($0.date!, inSameDayAs: date) }) {
-            viewContext.delete(existingConflict)
-        } else {
-            let newConflict = Conflict(context: viewContext)
-            newConflict.id = UUID()
-            newConflict.date = date
-            newConflict.person = selectedPerson
-            newConflict.notes = userText
-            newConflict.intensity = intensity.stringValue
-        }
-        do {
-            try viewContext.save()
-        } catch {
-            print("Error saving conflict: \(error)")
-        }
-    }
+    private func toggleConflictForDate(date: Date) {
+               Task {
+                   do {
+                       try await conflictManager.toggleConflict(
+                           date: date,
+                           person: selectedPerson,
+                           notes: userText,
+                           intensity: intensity
+                       )
+                   } catch {
+                       print("Error toggling conflict: \(error)")
+                   }
+               }
+           }
 }
 
 // MARK: - Date Circle View
@@ -339,7 +321,8 @@ struct DateCircleView: View {
 }
 
 #Preview {
-    MainView()
-        .environment(\.managedObjectContext, PersistenceController.shared.container.viewContext)
-        .preferredColorScheme(.dark)
-}
+      MainView()
+          .environment(\.managedObjectContext, PersistenceController.shared.container.viewContext)
+          .environmentObject(ConflictManager(context: PersistenceController.shared.container.viewContext))
+          .preferredColorScheme(.dark)
+  }
