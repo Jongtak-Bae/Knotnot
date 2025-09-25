@@ -116,7 +116,7 @@ struct NoteSheet: View {
                             .padding(4)
                             .padding(.horizontal, 4)
                             .foregroundStyle(Color.white)
-                            .background(Color(hex: "#5D00FF"))
+                            .background(.purple)
                             .clipShape(Capsule())
                     }
                 }

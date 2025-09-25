@@ -22,20 +22,21 @@ struct SteppedSlider: View {
                     .frame(height: trackHeight)
                     .padding(.horizontal, -10) // margin for thumb ends
                 
-                // Stops (ticks)
-                HStack {
-                    ForEach(0..<steps) { i in
-                        Circle()
-                            .fill(Color.gray)
-                            .frame(width: 8, height: 8)
-                        if i < steps - 1 { Spacer() }
-                    }
-                }
-                .padding(.horizontal, thumbSize / 2)
+//                // Stops (ticks)
+//                HStack {
+//                    ForEach(0..<steps) { i in
+//                        Circle()
+//                            .fill(Color.gray)
+//                            .frame(width: 8, height: 8)
+//                        if i < steps - 1 { Spacer() }
+//                    }
+//                }
+//                .padding(.horizontal, thumbSize / 2)
                 
                 // Thumb
                 Circle()
                     .fill(Color("WhiteAlt"))
+                    .shadow(color: .gray.opacity(0.5), radius: 4,  y: 2)
                     //.stroke(Color("White"), lineWidth: 2)
                     .frame(width: thumbSize, height: thumbSize)
                     .offset(x: currentThumbX(usableWidth: usableWidth, stepWidth: stepWidth))
@@ -73,5 +74,5 @@ struct SteppedSlider: View {
 
 #Preview {
     SteppedSlider(value: .constant(.moderate))
-        .preferredColorScheme(.dark)
+        .preferredColorScheme(.light)
 }

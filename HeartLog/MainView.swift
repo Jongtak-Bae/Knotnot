@@ -23,11 +23,11 @@ struct MainView: View {
     @State private var selectedCircle: Int? = nil
     @Namespace private var animation
     
-    // Generate past 5 dates including today
+    // Generate five past days including today
     private var pastFiveDates: [Date] {
-        let today = Date()
+        let today = Calendar.current.startOfDay(for: Date()) // Normalize to start of day
         let calendar = Calendar.current
-        return (0..<5).compactMap { calendar.date(byAdding: .day, value: -$0, to: today) }.reversed()
+        return (0...4).compactMap { calendar.date(byAdding: .day, value: -$0, to: today) }.reversed()
     }
     
     var body: some View {
@@ -60,11 +60,11 @@ struct MainView: View {
                                     DateCircleView(
                                         date: date,
                                         index: index,
-                                        centeredIndex: centeredIndex,
+                                        centeredIndex: centeredIndex, // Pass dynamic centeredIndex
                                         conflicts: conflicts,
                                         selectedDateIndex: $selectedDateIndex,
                                         scrollPosition: $scrollPosition,
-                                        onTap: { toggleConflictForDate(date: date) }
+                                        onTap: { toggleConflictForDate(date: date, index: index) }
                                     )
                                     .containerRelativeFrame(.horizontal)
                                     .scrollTransition { content, phase in
@@ -81,41 +81,45 @@ struct MainView: View {
                         .scrollIndicators(.hidden)
                         .frame(height: 250)
                         .scrollPosition(id: $scrollPosition)
-                        .onChange(of: scrollPosition) {
-                            centeredIndex = scrollPosition ?? 0
-                            if let conflict = conflicts.first(where: { Calendar.current.isDate($0.date!, inSameDayAs: pastFiveDates[centeredIndex]) }) {
-                                selectedPerson = conflict.person ?? "Him"
-                                intensity = ConflictIntensity(string: conflict.intensity) ?? .moderate
-                                userText = conflict.notes ?? ""
-                            } else {
-                                intensity = .moderate
-                                userText = ""
-                            }
+
+                        .onChange(of: scrollPosition) { _, newValue in
+                            centeredIndex = newValue ?? 0
+                            refreshUIState(for: pastFiveDates[centeredIndex])
                         }
                         .onAppear {
                             scrollPosition = pastFiveDates.count - 1
                         }
                     }
                     
-                    // Intensity Slider
-                    SteppedSlider(value: $intensity)
-                        .frame(width: 150, height: 56)
-                        .onChange(of: intensity) {
-                                                          Task {
-                                                              do {
-                                                                  if try await conflictManager.fetchConflict(for: pastFiveDates[centeredIndex]) != nil {
-                                                                      try await conflictManager.saveConflict(
-                                                                          date: pastFiveDates[centeredIndex],
-                                                                          person: selectedPerson,
-                                                                          notes: userText,
-                                                                          intensity: intensity
-                                                                      )
-                                                                  }
-                                                              } catch {
-                                                                  print("Error saving conflict: \(error)")
-                                                              }
-                                                          }
-                                                      }
+                    
+                  
+                        Text(intensity.displayName)
+                        .foregroundStyle(Color(hex: "#7F809E"))
+                        .padding(.bottom)
+                        
+                        // Intensity Slider
+                        SteppedSlider(value: $intensity)
+                            .frame(width: 150, height: 56)
+                            .onChange(of: intensity) { _, _ in
+                                Task { @MainActor in
+                                    do {
+                                        let centerDate = pastFiveDates[centeredIndex]
+                                        // Fetch synchronously to check existence
+                                        if try conflictManager.fetchConflict(for: centerDate) != nil {
+                                            try await conflictManager.saveConflict(
+                                                date: centerDate,
+                                                person: selectedPerson,
+                                                notes: userText,
+                                                intensity: intensity
+                                            )
+                                        }
+                                    } catch {
+                                        print("Error saving conflict: \(error)")
+                                    }
+                                }
+                            }
+                  
+                    
                 }
                 .padding(.top, 120)
                 
@@ -233,20 +237,42 @@ struct MainView: View {
         return formatter.string(from: date)
     }
 
-    private func toggleConflictForDate(date: Date) {
-               Task {
-                   do {
-                       try await conflictManager.toggleConflict(
-                           date: date,
-                           person: selectedPerson,
-                           notes: userText,
-                           intensity: intensity
-                       )
-                   } catch {
-                       print("Error toggling conflict: \(error)")
-                   }
-               }
-           }
+    private func refreshUIState(for date: Date) {
+        if let conflict = conflicts.first(where: { Calendar.current.isDate($0.date!, inSameDayAs: date) }) {
+            selectedPerson = conflict.person ?? "Him"
+            intensity = ConflictIntensity(string: conflict.intensity) ?? .moderate
+            userText = conflict.notes ?? ""
+        } else {
+            intensity = .moderate
+            userText = ""
+        }
+    }
+
+    private func toggleConflictForDate(date: Date, index: Int) {
+        Task {
+            do {
+                // If not centered, scroll to center it first
+                if index != centeredIndex {
+                    withAnimation(.spring()) {
+                        scrollPosition = index
+                    }
+                    // Wait briefly for scroll to complete and centeredIndex to update
+                    try await Task.sleep(nanoseconds: 300_000_000) // 0.3s delay
+                }
+                let centerDate = pastFiveDates[centeredIndex]
+                try await conflictManager.toggleConflict(
+                    date: centerDate,
+                    person: selectedPerson,
+                    notes: userText,
+                    intensity: intensity
+                )
+                // Refresh UI state after toggle (FetchRequest will update conflicts)
+                refreshUIState(for: centerDate)
+            } catch {
+                print("Error toggling conflict: \(error)")
+            }
+        }
+    }
 }
 
 // MARK: - Date Circle View
@@ -326,3 +352,4 @@ struct DateCircleView: View {
           .environmentObject(ConflictManager(context: PersistenceController.shared.container.viewContext))
           .preferredColorScheme(.dark)
   }
+

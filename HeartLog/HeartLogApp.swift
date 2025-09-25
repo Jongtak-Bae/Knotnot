@@ -23,6 +23,7 @@ struct HeartLogApp: App {
             ContentView()
                 .environment(\.managedObjectContext, persistenceController.container.viewContext)
                 .environmentObject(conflictManager)
+              
         }
     }
 }
