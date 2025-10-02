@@ -39,7 +39,7 @@ extension Calendar {
 }
 
 
-// MARK: Internsity 
+// MARK: Internsity
 enum ConflictIntensity: Int, CaseIterable {
     case minor = 0
     case moderate = 1
@@ -47,26 +47,35 @@ enum ConflictIntensity: Int, CaseIterable {
     
     var displayName: String {
         switch self {
-        case .minor: return "Minor"
-        case .moderate: return "Moderate"
-        case .severe: return "Severe"
+        case .minor:
+            return NSLocalizedString("Minor", comment: "Minor conflict intensity")
+        case .moderate:
+            return NSLocalizedString("Moderate", comment: "Moderate conflict intensity")
+        case .severe:
+            return NSLocalizedString("Severe", comment: "Severe conflict intensity")
         }
     }
     
     var color: Color {
         switch self {
         case .minor: return Color(hex: "#FFC35D")
-        case .moderate: return Color(hex: "FF8D5D")
+        case .moderate: return Color(hex: "#FF8D5D")
         case .severe: return Color(hex: "#E75DFF")
         }
     }
     
     // Convert to/from String for Core Data storage
     var stringValue: String {
-        displayName
+        // Use English strings for Core Data storage to maintain compatibility
+        switch self {
+        case .minor: return "Minor"
+        case .moderate: return "Moderate"
+        case .severe: return "Severe"
+        }
     }
     
     init?(string: String?) {
+        // Map English strings used in Core Data to enum cases
         switch string {
         case "Minor": self = .minor
         case "Moderate": self = .moderate

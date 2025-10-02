@@ -178,23 +178,27 @@ struct MainView: View {
                 Spacer()
             }
         }
-        .background(
-//            RadialGradient(gradient: Gradient(colors: [.red, .yellow, .green, .blue, .purple]), center: .topLeading, startRadius: 50, endRadius: 100)
-            MeshGradient(
-                width: 3,
-                height: 3,
-                points: [
-                    .init(x: 0, y: 0), .init(x: 0.8, y: 0),.init(x: 1, y: 0),
-                    .init(x: 0, y: 0.2), .init(x: 0.1, y: 0.5),.init(x: 1, y: 0.5),
-                    .init(x: 0, y: 1), .init(x: 0, y: 1),.init(x: 1, y: 1)
-                ] ,
-                colors: [
-                    Color(hex: "#EAAB04").opacity(0.2), Color(hex: "#A640BC").opacity(0.2),Color(hex: "#A640BC").opacity(0.2),
-                    .clear, .clear, .clear,
-                    .clear, .clear, .clear
-                ]
-            )
-        )
+        // Conditionally apply MeshGradient background for iOS 18.0+
+                   #if canImport(SwiftUI)
+                   .background {
+                       if #available(iOS 18.0, *) {
+                           MeshGradient(
+                               width: 3,
+                               height: 3,
+                               points: [
+                                   .init(x: 0, y: 0), .init(x: 0.8, y: 0), .init(x: 1, y: 0),
+                                   .init(x: 0, y: 0.2), .init(x: 0.1, y: 0.5), .init(x: 1, y: 0.5),
+                                   .init(x: 0, y: 1), .init(x: 0, y: 1), .init(x: 1, y: 1)
+                               ],
+                               colors: [
+                                   Color(hex: "#EAAB04").opacity(0.2), Color(hex: "#A640BC").opacity(0.2), Color(hex: "#A640BC").opacity(0.2),
+                                   .clear, .clear, .clear,
+                                   .clear, .clear, .clear
+                               ]
+                           )
+                       }
+                   }
+                   #endif
         .ignoresSafeArea()
         .sheet(isPresented: $isSheetPresented) {
                         NoteSheet(
@@ -227,10 +231,13 @@ struct MainView: View {
 
     private func dayAndMonth(from date: Date) -> String {
         let formatter = DateFormatter()
-        formatter.dateFormat = "d MMMM"
+        formatter.locale = Locale.current // Use the device's current locale
+        formatter.dateStyle = .medium // Use medium style for date (includes day and month, adapts to locale)
+        formatter.timeStyle = .none // Exclude time
+        // Optionally, customize to ensure only day and month are shown
+        formatter.setLocalizedDateFormatFromTemplate("dMMMM") // Template for day and month
         return formatter.string(from: date)
     }
-
     private func year(from date: Date) -> String {
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy"
