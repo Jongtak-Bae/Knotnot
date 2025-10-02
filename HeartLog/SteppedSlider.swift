@@ -36,7 +36,7 @@ struct SteppedSlider: View {
                 // Thumb
                 Circle()
                     .fill(Color("WhiteAlt"))
-                    .shadow(color: .gray.opacity(0.5), radius: 4,  y: 2)
+                    .shadow(color: .black.opacity(0.2), radius: 4,  y: 2)
                     //.stroke(Color("White"), lineWidth: 2)
                     .frame(width: thumbSize, height: thumbSize)
                     .offset(x: currentThumbX(usableWidth: usableWidth, stepWidth: stepWidth))
