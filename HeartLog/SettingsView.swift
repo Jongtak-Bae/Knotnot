@@ -115,7 +115,7 @@ struct SettingsView: View {
     }
     
     private func writeReview()->URL {
-        let appID = "6670250582"
+        let appID = "6753355545"
         let url = "https://apps.apple.com/app/id\(appID)?action=write-review"
         guard let writeReviewURL = URL(string: url) else {
             fatalError("Expected a valid URL")

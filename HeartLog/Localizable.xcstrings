@@ -62,7 +62,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "联系我"
+            "value" : "联系开发者"
           }
         }
       }
@@ -93,7 +93,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "关注我的X"
+            "value" : "在X上关注"
           }
         }
       }
