@@ -12,6 +12,7 @@ import SwiftUI
 struct HeartLogApp: App {
     let persistenceController = PersistenceController.shared
     let conflictManager: ConflictManager
+    @State private var showOnboarding: Bool = !UserDefaults.standard.bool(forKey: "hasSeenOnboarding")
     
     init() {
         let context = persistenceController.container.viewContext
@@ -19,11 +20,17 @@ struct HeartLogApp: App {
     }
     
     var body: some Scene {
-        WindowGroup {
-            ContentView()
-                .environment(\.managedObjectContext, persistenceController.container.viewContext)
-                .environmentObject(conflictManager)
-              
+            WindowGroup {
+                if showOnboarding {
+                    OnboardingView {
+                        showOnboarding = false
+                        UserDefaults.standard.set(true, forKey: "hasSeenOnboarding")
+                    }
+                } else {
+                    ContentView()
+                        .environment(\.managedObjectContext, persistenceController.container.viewContext)
+                        .environmentObject(conflictManager)
+                }
+            }
         }
-    }
 }

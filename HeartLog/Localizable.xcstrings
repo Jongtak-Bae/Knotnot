@@ -37,6 +37,16 @@
         }
       }
     },
+    "Awareness is the first step to harmony." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "少些闹闹， 多些TalkTalk"
+          }
+        }
+      }
+    },
     "Calendar" : {
       "localizations" : {
         "zh-Hans" : {
@@ -98,6 +108,16 @@
         }
       }
     },
+    "Get Started" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "立即记录"
+          }
+        }
+      }
+    },
     "Instagram" : {
       "extractionState" : "manual"
     },
@@ -139,6 +159,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "中闹"
+          }
+        }
+      }
+    },
+    "Next" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "下一步"
           }
         }
       }
@@ -209,6 +239,16 @@
         }
       }
     },
+    "Slide to adjust the intensity" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "滑动滑块调整程度"
+          }
+        }
+      }
+    },
     "Sun" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -216,6 +256,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "日"
+          }
+        }
+      }
+    },
+    "Tap on the circle to log a conflict" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "点击圆圈记录一次争吵"
           }
         }
       }
