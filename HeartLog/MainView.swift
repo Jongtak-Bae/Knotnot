@@ -65,17 +65,15 @@ struct MainView: View {
                 userText: $userText,
                 isPresented: $isSheetPresented,
                 onSave: { notes in
-                    Task {
-                        do {
-                            try await conflictManager.saveConflict(
-                                date: pastFiveDates[centeredIndex],
-                                person: selectedPerson,
-                                notes: notes,
-                                intensity: intensity
-                            )
-                        } catch {
-                            print("Error saving conflict: \(error)")
-                        }
+                    do {
+                        try conflictManager.saveConflict(
+                            date: pastFiveDates[centeredIndex],
+                            person: selectedPerson,
+                            notes: notes,
+                            intensity: intensity
+                        )
+                    } catch {
+                        print("Error saving conflict: \(error)")
                     }
                 }
             )

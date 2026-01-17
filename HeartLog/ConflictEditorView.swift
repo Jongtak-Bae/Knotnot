@@ -6,17 +6,28 @@ struct ConflictEditorView: View {
         sortDescriptors: [NSSortDescriptor(keyPath: \Conflict.date, ascending: true)],
         animation: .default)
     private var conflicts: FetchedResults<Conflict>
-    
+
     let dates: [Date]
     let initialDate: Date
-    
-    @State private var centeredIndex: Int = 0
-    @State private var scrollPosition: Int? = nil
-    
+
+    @State private var centeredIndex: Int
+    @State private var scrollPosition: Int?
+
     @State private var selectedPerson: String = "Him"
     @State private var intensity: ConflictIntensity = .moderate
     @State private var userText: String = ""
     @State private var isSheetPresented = false
+
+    init(dates: [Date], initialDate: Date) {
+        self.dates = dates
+        self.initialDate = initialDate
+        let index = dates.firstIndex(where: {
+            Calendar.current.isDate($0, inSameDayAs: initialDate)
+        }) ?? 0
+        _centeredIndex = State(initialValue: index)
+        _scrollPosition = State(initialValue: index)
+        
+    }
     
     var body: some View {
         VStack {
@@ -64,15 +75,16 @@ struct ConflictEditorView: View {
                 .scrollIndicators(.hidden)
                 .frame(height: 250)
                 .scrollPosition(id: $scrollPosition)
-                .onAppear {
-                    centeredIndex = dates.firstIndex(where: {
-                        Calendar.current.isDate($0, inSameDayAs: initialDate)
-                    }) ?? 0
+                .task {
+                    // Small delay to ensure LazyHStack is ready
+                    try? await Task.sleep(nanoseconds: 50_000_000) // 0.05s
                     scrollPosition = centeredIndex
                     refreshUIState(for: dates[centeredIndex])
+                    
                 }
                 .onChange(of: scrollPosition) { _, newValue in
-                    centeredIndex = newValue ?? centeredIndex
+                    guard let newValue = newValue else { return }
+                    centeredIndex = newValue
                     refreshUIState(for: dates[centeredIndex])
                 }
             }
@@ -81,13 +93,77 @@ struct ConflictEditorView: View {
             // MARK: Intensity
             Text(intensity.displayName)
                 .foregroundStyle(.gray)
-            
+
             SteppedSlider(value: $intensity)
                 .frame(width: 150)
                 .onChange(of: intensity) { _, _ in
                     saveIfExists()
                 }
-            
+
+            // MARK: Notes Button
+            if userText.isEmpty {
+                Button(action: {
+                    isSheetPresented = true
+                }) {
+                    Text("Add Notes")
+                        .font(.system(size: 17))
+                        .foregroundColor(Color(hex: "#7f809e"))
+                        .padding(.horizontal, 24)
+                        .padding(.vertical, 12)
+                        .frame(height: 47)
+                        .background(
+                            Capsule()
+                                .stroke(Color(hex: "#b0b0c9"), lineWidth: 1)
+                        )
+                }
+                .padding(.top, 20)
+            }
+
+            // MARK: Display Notes
+            if !userText.isEmpty {
+                ZStack {
+                    Text(userText)
+                        .font(.system(size: 17, weight: .medium))
+                        .foregroundColor(.black)
+                        .lineLimit(4)
+                        .truncationMode(.tail)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                        .padding(.leading, 24)
+                        .padding(.top, 25)
+                        .padding(.trailing, 24)
+                        .padding(.bottom, 25)
+
+                    VStack {
+                        Spacer()
+                        HStack {
+                            Spacer()
+                            Button(action: {
+                                isSheetPresented = true
+                            }) {
+                                Image(systemName: "pencil")
+                                    .font(.system(size: 17, weight: .semibold))
+                                    .foregroundColor(Color(hex: "#7f809e"))
+                                    .frame(width: 54, height: 54)
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 30)
+                                            .fill(Color.white)
+                                            .stroke(Color(hex: "#b0b0c9"), lineWidth: 1)
+                                    )
+                            }
+                            .padding(.trailing, 12)
+                            .padding(.bottom, 12)
+                        }
+                    }
+                }
+                .frame(height: 145)
+                .background(
+                    RoundedRectangle(cornerRadius: 30)
+                        .stroke(Color(hex: "#b0b0c9"), lineWidth: 1)
+                )
+                .padding(.horizontal, 22)
+                .padding(.top, 20)
+            }
+
             Spacer()
         }
         .sheet(isPresented: $isSheetPresented) {
@@ -109,9 +185,11 @@ struct ConflictEditorView: View {
         }) {
             intensity = ConflictIntensity(string: conflict.intensity) ?? .moderate
             userText = conflict.notes ?? ""
+           
         } else {
             intensity = .moderate
             userText = ""
+          
         }
     }
     //
@@ -131,6 +209,7 @@ struct ConflictEditorView: View {
             notes: notes,
             intensity: intensity
         )
+        userText = notes
     }
     
     private func saveIfExists() {
@@ -176,7 +255,7 @@ struct ConflictEditorView: View {
                     try await Task.sleep(nanoseconds: 300_000_000) // 0.3s delay
                 }
                 //            let centerDate = pastFiveDates[centeredIndex]
-                try await conflictManager.toggleConflict(
+                try conflictManager.toggleConflict(
                     date: date,
                     person: selectedPerson,
                     notes: userText,

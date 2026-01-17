@@ -1,6 +1,16 @@
 import SwiftUI
 import CoreData
 
+struct CalendarDayItem: Identifiable {
+    let id = UUID()
+    let date: Date?
+}
+
+struct IdentifiableDate: Identifiable {
+    let id = UUID()
+    let date: Date
+}
+
 struct CalendarView: View {
     @EnvironmentObject private var conflictManager: ConflictManager
     @FetchRequest(
@@ -12,8 +22,8 @@ struct CalendarView: View {
     @State private var selectedDate: Date? = nil
     @State private var selectedConflict: Conflict? = nil
     @State private var showSettings: Bool = false
-    @State private var showAddConflictSheet = false
-    @State private var dateForNewConflict: Date? = nil
+    @State private var dateForNewConflict: IdentifiableDate? = nil
+    @State private var tappedDate: Date? = nil
 
     private var calendar: Calendar {
         var cal = Calendar.current
@@ -26,33 +36,32 @@ struct CalendarView: View {
             formatter.locale = Locale.current // Use device's current locale
             // Use veryShortWeekdaySymbols to match "Sun", "Mon", etc.
             let symbols = formatter.shortWeekdaySymbols ?? ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
-            // Rotate array to start with Sunday (index 0) to match calendar.firstWeekday = 1
-            let firstWeek = calendar.firstWeekday
-            return Array(symbols[0...] + symbols[..<firstWeek])
+            // Rotate array to start with the first weekday
+            let firstWeek = calendar.firstWeekday - 1 // Convert to 0-indexed
+            return Array(symbols[firstWeek...] + symbols[..<firstWeek])
         }
     
-    private var monthDays: [Date] {
-        guard let monthInterval = calendar.dateInterval(of: .month, for: currentMonth),
-              let firstDay = calendar.date(from: calendar.dateComponents([.year, .month], from: currentMonth)) else {
+    private var monthDays: [CalendarDayItem] {
+        guard let firstDay = calendar.date(from: calendar.dateComponents([.year, .month], from: currentMonth)) else {
             return []
         }
-        
+
         let daysInMonth = calendar.range(of: .day, in: .month, for: currentMonth)?.count ?? 0
         let firstWeekday = calendar.component(.weekday, from: firstDay)
         let offsetDays = (firstWeekday - calendar.firstWeekday + 7) % 7
-        
-        var days: [Date] = []
+
+        var days: [CalendarDayItem] = []
         for _ in 0..<offsetDays {
-            days.append(Date.distantPast)
+            days.append(CalendarDayItem(date: nil))
         }
         for day in 0..<daysInMonth {
             if let date = calendar.date(byAdding: .day, value: day, to: firstDay) {
-                days.append(date)
+                days.append(CalendarDayItem(date: date))
             }
         }
         let totalSlots = ((days.count + 6) / 7) * 7
         for _ in days.count..<totalSlots {
-            days.append(Date.distantFuture)
+            days.append(CalendarDayItem(date: nil))
         }
         return days
     }
@@ -113,6 +122,17 @@ struct CalendarView: View {
         }
         return false
     }
+
+    private func generateDatesAround(date: Date) -> [Date] {
+        var dates: [Date] = []
+        for offset in -5...5 {
+            if let newDate = calendar.date(byAdding: .day, value: offset, to: date) {
+                dates.append(newDate)
+            }
+        }
+        return dates
+    }
+
     // MARK: - Body
     var body: some View {
         NavigationStack {
@@ -173,7 +193,7 @@ struct CalendarView: View {
                 
                 // Weekday headers
                                 LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 7), spacing: 10) {
-                                    ForEach(weekdayNames, id: \.self) { day in
+                                    ForEach(Array(weekdayNames.enumerated()), id: \.offset) { index, day in
                                         Text(day)
                                             .font(.footnote)
                                             .foregroundColor(.gray)
@@ -184,12 +204,16 @@ struct CalendarView: View {
                 
                 // Calendar grid
                 LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 10), count: 7), spacing: 20) {
-                    ForEach(monthDays, id: \.self) { date in
-                        if date == Date.distantPast || date == Date.distantFuture {
-                            Text("") // Empty cell for padding
-                                .frame(height: 40)
-                        } else {
+                    ForEach(monthDays, id: \.id) { dayItem in
+                        if let date = dayItem.date {
                             ZStack(alignment: .bottom) {
+                                // Tap indicator background
+                                if let tappedDate = tappedDate, Calendar.current.isDate(date, inSameDayAs: tappedDate) {
+                                    Circle()
+                                        .fill(Color.gray.opacity(0.2))
+                                        .frame(width: 40, height: 40)
+                                }
+
                                 ZStack {
                                     let circleColor: Color = hasConflict(on: date) ? conflictIntensity(on: date).color : .clear
                                     Circle()
@@ -200,7 +224,7 @@ struct CalendarView: View {
                                             lineWidth: selectedConflict != nil && selectedConflict?.date != nil && Calendar.current.isDate(date, inSameDayAs: selectedConflict!.date!) ? 3 : 0
                                         )
                                         .frame(width: 40, height: 40)
-                                    
+
                                     Text(hasConflict(on: date) ? conflictEmoji(on: date) : "\(calendar.component(.day, from: date))")
                                         .font(.body)
                                         .foregroundColor(hasConflict(on: date) ? .white : .primary)
@@ -212,39 +236,47 @@ struct CalendarView: View {
                                         .offset(y: 8)
                                 }
                             }
-                            .onTapGesture {
-                                if hasConflict(on: date) {
-                                    selectedConflict = conflicts.first {
-                                        Calendar.current.isDate($0.date!, inSameDayAs: date)
+                            .simultaneousGesture(
+                                DragGesture(minimumDistance: 0)
+                                    .onChanged { _ in
+                                        tappedDate = date
                                     }
-                                } else {
-                                    dateForNewConflict = date
-                                    showAddConflictSheet = true
-                                }
-                            }
-
+                                    .onEnded { _ in
+                                        tappedDate = nil
+                                        if hasConflict(on: date) {
+                                            selectedConflict = conflicts.first {
+                                                Calendar.current.isDate($0.date!, inSameDayAs: date)
+                                            }
+                                        } else {
+                                            dateForNewConflict = IdentifiableDate(date: date)
+                                        }
+                                    }
+                            )
+                        } else {
+                            Text("") // Empty cell for padding
+                                .frame(height: 40)
                         }
                     }
                 }
                 .padding(.horizontal)
-//                .sheet(isPresented: $showAddConflictSheet) {
-//                    if let date = dateForNewConflict {
-//                        AddConflictView(
-//                            date: date,
-//                            onSave: {
-//                                showAddConflictSheet = false
-//                                dateForNewConflict = nil
-//                            },
-//                            onCancel: {
-//                                showAddConflictSheet = false
-//                                dateForNewConflict = nil
-//                            }
-//                        )
-//                        .environmentObject(conflictManager)
-//                    }
-//                }
+                .sheet(item: $dateForNewConflict) { identifiableDate in
+                    NavigationStack {
+                        ConflictEditorView(
+                            dates: generateDatesAround(date: identifiableDate.date),
+                            initialDate: identifiableDate.date
+                        )
+                        .environmentObject(conflictManager)
+                        .toolbar {
+                            ToolbarItem(placement: .confirmationAction) {
+                                Button("Done") {
+                                    dateForNewConflict = nil
+                                }
+                            }
+                        }
+                    }
+                }
 
-                
+
                 // Conflict details
                 if let conflict = selectedConflict {
                     ConflictDetailView(
@@ -261,6 +293,14 @@ struct CalendarView: View {
                                     selectedConflict = nil
                                 } catch {
                                     print("Error deleting conflict: \(error)")
+                                }
+                            }
+                        },
+                        onRefresh: {
+                            // Refresh selectedConflict with updated data
+                            if let conflictDate = conflict.date {
+                                selectedConflict = conflicts.first {
+                                    Calendar.current.isDate($0.date!, inSameDayAs: conflictDate)
                                 }
                             }
                         }
@@ -308,9 +348,28 @@ struct CalendarView: View {
 
 // MARK: Conflict Detail View
 struct ConflictDetailView: View {
+    @EnvironmentObject private var conflictManager: ConflictManager
     let conflict: Conflict
     let onDelete: () -> Void
-    
+    let onRefresh: () -> Void
+
+    @State private var showDeleteConfirmation = false
+    @State private var showEditSheet: IdentifiableDate? = nil
+
+    private var calendar: Calendar {
+        Calendar.current
+    }
+
+    private func generateDatesAround(date: Date) -> [Date] {
+        var dates: [Date] = []
+        for offset in -5...5 {
+            if let newDate = calendar.date(byAdding: .day, value: offset, to: date) {
+                dates.append(newDate)
+            }
+        }
+        return dates
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
@@ -341,16 +400,61 @@ struct ConflictDetailView: View {
                 }
                 
                 Spacer()
-                
-                Button(action: {
-                    onDelete()
-                }) {
-                    Image(systemName: "trash")
-                        .foregroundColor(.gray)
-                        .font(.body)
-                        .padding()
-                        .background(RoundedRectangle(cornerRadius: 50.0)
-                            .stroke(.gray.opacity(0.5)))
+
+                VStack(spacing: 10) {
+                    Button(action: {
+                        if let date = conflict.date {
+                            showEditSheet = IdentifiableDate(date: date)
+                        }
+                    }) {
+                        Image(systemName: "pencil")
+                            .foregroundColor(.gray)
+                            .font(.body)
+                            .padding()
+                            .background(RoundedRectangle(cornerRadius: 50.0)
+                                .stroke(.gray.opacity(0.5)))
+                    }
+
+                    Button(action: {
+                        showDeleteConfirmation = true
+                    }) {
+                        Image(systemName: "trash")
+                            .foregroundColor(.red)
+                            .font(.body)
+                            .padding()
+                            .background(RoundedRectangle(cornerRadius: 50.0)
+                                .stroke(.red.opacity(0.5)))
+                    }
+                }
+            }
+        }
+        .confirmationDialog(
+            "Delete this conflict?",
+            isPresented: $showDeleteConfirmation,
+            titleVisibility: .visible
+        ) {
+            Button("Delete", role: .destructive) {
+                onDelete()
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This action cannot be undone.")
+        }
+        .sheet(item: $showEditSheet, onDismiss: {
+            onRefresh()
+        }) { identifiableDate in
+            NavigationStack {
+                ConflictEditorView(
+                    dates: generateDatesAround(date: identifiableDate.date),
+                    initialDate: identifiableDate.date
+                )
+                .environmentObject(conflictManager)
+                .toolbar {
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button("Done") {
+                            showEditSheet = nil
+                        }
+                    }
                 }
             }
         }
