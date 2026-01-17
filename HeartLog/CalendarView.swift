@@ -1,5 +1,6 @@
 import SwiftUI
 import CoreData
+import CloudKit
 
 struct CalendarDayItem: Identifiable {
     let id = UUID()
@@ -11,19 +12,28 @@ struct IdentifiableDate: Identifiable {
     let date: Date
 }
 
+enum SyncStatus {
+    case available
+    case syncing
+    case notAvailable(String)
+    case error(String)
+}
+
 struct CalendarView: View {
     @EnvironmentObject private var conflictManager: ConflictManager
     @FetchRequest(
         sortDescriptors: [NSSortDescriptor(keyPath: \Conflict.date, ascending: true)],
         animation: .default)
     private var conflicts: FetchedResults<Conflict>
-    
+
     @State private var currentMonth: Date = Date()
     @State private var selectedDate: Date? = nil
     @State private var selectedConflict: Conflict? = nil
     @State private var showSettings: Bool = false
     @State private var dateForNewConflict: IdentifiableDate? = nil
     @State private var tappedDate: Date? = nil
+    @State private var syncStatus: SyncStatus = .syncing
+    @State private var lastSyncTime: Date?
 
     private var calendar: Calendar {
         var cal = Calendar.current
@@ -133,10 +143,49 @@ struct CalendarView: View {
         return dates
     }
 
+    private func checkiCloudStatus() {
+        PersistenceController.shared.checkiCloudStatus { available, message in
+            if available {
+                syncStatus = .available
+            } else {
+                syncStatus = .notAvailable(message ?? "iCloud not available")
+            }
+        }
+    }
+
+    private func observeSyncEvents() {
+        NotificationCenter.default.addObserver(
+            forName: NSPersistentCloudKitContainer.eventChangedNotification,
+            object: PersistenceController.shared.container,
+            queue: .main
+        ) { notification in
+            if let event = notification.userInfo?[NSPersistentCloudKitContainer.eventNotificationUserInfoKey]
+                as? NSPersistentCloudKitContainer.Event {
+
+                if event.type == .import || event.type == .export {
+                    syncStatus = .syncing
+
+                    // Update to available after sync completes
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                        if event.error == nil {
+                            syncStatus = .available
+                            lastSyncTime = Date()
+                        } else {
+                            syncStatus = .error(event.error?.localizedDescription ?? "Sync error")
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     // MARK: - Body
     var body: some View {
         NavigationStack {
-            VStack(alignment: .leading) {
+            VStack(alignment: .leading, spacing: 0) {
+                // iCloud Sync Status Banner
+                SyncStatusBanner(status: syncStatus, lastSyncTime: lastSyncTime)
+
                 // Total conflicts display with settings gear
                 HStack {
                     VStack(alignment: .leading) {
@@ -318,6 +367,10 @@ struct CalendarView: View {
             .onChange(of: currentMonth) { _, _ in
                 selectedConflict = nil
             }
+            .onAppear {
+                checkiCloudStatus()
+                observeSyncEvents()
+            }
             .navigationDestination(isPresented: $showSettings) {
                 SettingsView()
             }
@@ -467,6 +520,62 @@ struct ConflictDetailView: View {
     }
 }
 
+// MARK: - Sync Status Banner
+struct SyncStatusBanner: View {
+    let status: SyncStatus
+    let lastSyncTime: Date?
+
+    private var bannerConfig: (icon: String, text: String, color: Color) {
+        switch status {
+        case .available:
+            if let lastSync = lastSyncTime {
+                let timeAgo = timeAgoString(from: lastSync)
+                return ("checkmark.icloud.fill", "Synced \(timeAgo)", .green)
+            }
+            return ("checkmark.icloud.fill", "iCloud Synced", .green)
+        case .syncing:
+            return ("arrow.triangle.2.circlepath.icloud.fill", "Syncing...", .blue)
+        case .notAvailable(let message):
+            return ("exclamationmark.icloud.fill", message, .orange)
+        case .error(let message):
+            return ("xmark.icloud.fill", message, .red)
+        }
+    }
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Image(systemName: bannerConfig.icon)
+                .font(.system(size: 14))
+                .foregroundColor(bannerConfig.color)
+
+            Text(bannerConfig.text)
+                .font(.system(size: 13))
+                .foregroundColor(.primary)
+
+            Spacer()
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 8)
+        .background(bannerConfig.color.opacity(0.1))
+    }
+
+    private func timeAgoString(from date: Date) -> String {
+        let seconds = Int(Date().timeIntervalSince(date))
+
+        if seconds < 60 {
+            return "just now"
+        } else if seconds < 3600 {
+            let minutes = seconds / 60
+            return "\(minutes)m ago"
+        } else if seconds < 86400 {
+            let hours = seconds / 3600
+            return "\(hours)h ago"
+        } else {
+            let days = seconds / 86400
+            return "\(days)d ago"
+        }
+    }
+}
 
 // MARK: Preview
 #Preview {
