@@ -34,8 +34,6 @@ struct CalendarView: View {
     @State private var tappedDate: Date? = nil
     @State private var syncStatus: SyncStatus = .syncing
     @State private var lastSyncTime: Date?
-    @State private var showSyncBanner: Bool = true
-    @State private var bannerDismissTask: Task<Void, Never>?
 
     private var calendar: Calendar {
         var cal = Calendar.current
@@ -149,28 +147,8 @@ struct CalendarView: View {
         PersistenceController.shared.checkiCloudStatus { available, message in
             if available {
                 syncStatus = .available
-                scheduleBannerDismissal()
             } else {
                 syncStatus = .notAvailable(message ?? "iCloud not available")
-                scheduleBannerDismissal()
-            }
-        }
-    }
-
-    private func scheduleBannerDismissal() {
-        // Cancel any existing task
-        bannerDismissTask?.cancel()
-
-        // Show banner
-        showSyncBanner = true
-
-        // Schedule dismissal after 5 seconds
-        bannerDismissTask = Task {
-            try? await Task.sleep(nanoseconds: 5_000_000_000) // 5 seconds
-            if !Task.isCancelled {
-                withAnimation {
-                    showSyncBanner = false
-                }
             }
         }
     }
@@ -185,25 +163,15 @@ struct CalendarView: View {
                 as? NSPersistentCloudKitContainer.Event {
 
                 if event.type == .import || event.type == .export {
-                    // Show banner and update status
-                    withAnimation {
-                        showSyncBanner = true
-                        syncStatus = .syncing
-                    }
+                    syncStatus = .syncing
 
                     // Update to available after sync completes
                     DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
                         if event.error == nil {
-                            withAnimation {
-                                syncStatus = .available
-                                lastSyncTime = Date()
-                            }
-                            scheduleBannerDismissal()
+                            syncStatus = .available
+                            lastSyncTime = Date()
                         } else {
-                            withAnimation {
-                                syncStatus = .error(event.error?.localizedDescription ?? "Sync error")
-                            }
-                            scheduleBannerDismissal()
+                            syncStatus = .error(event.error?.localizedDescription ?? "Sync error")
                         }
                     }
                 }
@@ -215,15 +183,8 @@ struct CalendarView: View {
     var body: some View {
         NavigationStack {
             VStack(alignment: .leading, spacing: 0) {
-                // iCloud Sync Status Banner (fixed height to prevent layout shift)
-                ZStack {
-                    if showSyncBanner {
-                        SyncStatusBanner(status: syncStatus, lastSyncTime: lastSyncTime)
-                            .transition(.opacity)
-                    }
-                }
-                .frame(height: showSyncBanner ? nil : 0)
-                .clipped()
+                // iCloud Sync Status Banner
+                SyncStatusBanner(status: syncStatus, lastSyncTime: lastSyncTime)
 
                 // Total conflicts display with settings gear
                 HStack {
