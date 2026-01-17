@@ -215,11 +215,15 @@ struct CalendarView: View {
     var body: some View {
         NavigationStack {
             VStack(alignment: .leading, spacing: 0) {
-                // iCloud Sync Status Banner
-                if showSyncBanner {
-                    SyncStatusBanner(status: syncStatus, lastSyncTime: lastSyncTime)
-                        .transition(.move(edge: .top).combined(with: .opacity))
+                // iCloud Sync Status Banner (fixed height to prevent layout shift)
+                ZStack {
+                    if showSyncBanner {
+                        SyncStatusBanner(status: syncStatus, lastSyncTime: lastSyncTime)
+                            .transition(.opacity)
+                    }
                 }
+                .frame(height: showSyncBanner ? nil : 0)
+                .clipped()
 
                 // Total conflicts display with settings gear
                 HStack {
