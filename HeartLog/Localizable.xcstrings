@@ -17,11 +17,12 @@
 
     },
     "Add Note" : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "写笔记"
+            "value" : "+ 备注"
           }
         }
       }
@@ -42,7 +43,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "少些闹闹， 多些TalkTalk"
+            "value" : "记录靠闹闹，关系更牢靠"
           }
         }
       }
@@ -86,6 +87,9 @@
           }
         }
       }
+    },
+    "Done" : {
+
     },
     "Enter your note here..." : {
       "localizations" : {
@@ -173,12 +177,15 @@
         }
       }
     },
+    "Note" : {
+
+    },
     "Note:" : {
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "笔记"
+            "value" : "备注"
           }
         }
       }
@@ -293,6 +300,9 @@
     },
     "unknown_intensity" : {
       "comment" : "Unknown intensity"
+    },
+    "View more" : {
+
     }
   },
   "version" : "1.0"

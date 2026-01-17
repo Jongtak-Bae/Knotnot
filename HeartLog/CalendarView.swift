@@ -12,7 +12,9 @@ struct CalendarView: View {
     @State private var selectedDate: Date? = nil
     @State private var selectedConflict: Conflict? = nil
     @State private var showSettings: Bool = false
-    
+    @State private var showAddConflictSheet = false
+    @State private var dateForNewConflict: Date? = nil
+
     private var calendar: Calendar {
         var cal = Calendar.current
         cal.firstWeekday = 1 // Start week on Sunday
@@ -211,16 +213,37 @@ struct CalendarView: View {
                                 }
                             }
                             .onTapGesture {
-                                selectedConflict = hasConflict(on: date) ?
-                                    conflicts.first { conflict in
-                                        guard let conflictDate = conflict.date else { return false }
-                                        return Calendar.current.isDate(conflictDate, inSameDayAs: date)
-                                    } : nil
+                                if hasConflict(on: date) {
+                                    selectedConflict = conflicts.first {
+                                        Calendar.current.isDate($0.date!, inSameDayAs: date)
+                                    }
+                                } else {
+                                    dateForNewConflict = date
+                                    showAddConflictSheet = true
+                                }
                             }
+
                         }
                     }
                 }
                 .padding(.horizontal)
+//                .sheet(isPresented: $showAddConflictSheet) {
+//                    if let date = dateForNewConflict {
+//                        AddConflictView(
+//                            date: date,
+//                            onSave: {
+//                                showAddConflictSheet = false
+//                                dateForNewConflict = nil
+//                            },
+//                            onCancel: {
+//                                showAddConflictSheet = false
+//                                dateForNewConflict = nil
+//                            }
+//                        )
+//                        .environmentObject(conflictManager)
+//                    }
+//                }
+
                 
                 // Conflict details
                 if let conflict = selectedConflict {

@@ -1,0 +1,350 @@
+import SwiftUI
+
+struct ConflictEditorView: View {
+    @EnvironmentObject private var conflictManager: ConflictManager
+    @FetchRequest(
+        sortDescriptors: [NSSortDescriptor(keyPath: \Conflict.date, ascending: true)],
+        animation: .default)
+    private var conflicts: FetchedResults<Conflict>
+    
+    let dates: [Date]
+    let initialDate: Date
+    
+    @State private var centeredIndex: Int = 0
+    @State private var scrollPosition: Int? = nil
+    
+    @State private var selectedPerson: String = "Him"
+    @State private var intensity: ConflictIntensity = .moderate
+    @State private var userText: String = ""
+    @State private var isSheetPresented = false
+    
+    var body: some View {
+        VStack {
+            Spacer()
+            // MARK: Date header
+            VStack(alignment: .leading) {
+                Text(year(from: dates[centeredIndex]))
+                    .font(.largeTitle)
+                    .foregroundStyle(.gray)
+                
+                Text(dayAndMonth(from: dates[centeredIndex]))
+                    .font(.system(size: 48))
+                    .fontWeight(.semibold)
+            }
+            ZStack{
+                RoundedRectangle(cornerRadius: 70)
+                    .frame(width: 140, height: 200)
+                    .offset(x: 0, y: -30)
+                    .foregroundStyle(Color("Purple"))
+                // MARK: Carousel (unchanged)
+                ScrollView(.horizontal) {
+                    LazyHStack(spacing: 0) {
+                        ForEach(Array(dates.enumerated()), id: \.offset) { index, date in
+                            DateCircleView(
+                                date: date,
+                                index: index,
+                                centeredIndex: centeredIndex,
+                                conflicts: conflicts,
+                                selectedDateIndex: .constant(nil),
+                                scrollPosition: $scrollPosition,
+                                onTap: { toggleConflictForDate(date: date, index: index) }
+                            )
+                            .containerRelativeFrame(.horizontal)
+                            .scrollTransition { content, phase in
+                                content
+                                    .scaleEffect(phase.isIdentity ? 1.2 : 0.8)
+                                    .opacity(phase.isIdentity ? 1.0 : 0.5)
+                            }
+                        }
+                    }
+                    .scrollTargetLayout()
+                }
+                .contentMargins(120.0, for: .scrollContent)
+                .scrollTargetBehavior(.viewAligned)
+                .scrollIndicators(.hidden)
+                .frame(height: 250)
+                .scrollPosition(id: $scrollPosition)
+                .onAppear {
+                    centeredIndex = dates.firstIndex(where: {
+                        Calendar.current.isDate($0, inSameDayAs: initialDate)
+                    }) ?? 0
+                    scrollPosition = centeredIndex
+                    refreshUIState(for: dates[centeredIndex])
+                }
+                .onChange(of: scrollPosition) { _, newValue in
+                    centeredIndex = newValue ?? centeredIndex
+                    refreshUIState(for: dates[centeredIndex])
+                }
+            }
+          
+            
+            // MARK: Intensity
+            Text(intensity.displayName)
+                .foregroundStyle(.gray)
+            
+            SteppedSlider(value: $intensity)
+                .frame(width: 150)
+                .onChange(of: intensity) { _, _ in
+                    saveIfExists()
+                }
+            
+            Spacer()
+        }
+        .sheet(isPresented: $isSheetPresented) {
+            NoteSheet(
+                userText: $userText,
+                isPresented: $isSheetPresented,
+                onSave: { notes in
+                    save(notes: notes)
+                }
+            )
+        }
+    }
+    
+    // MARK: - Helpers
+    
+    private func refreshUIState(for date: Date) {
+        if let conflict = conflicts.first(where: {
+            Calendar.current.isDate($0.date!, inSameDayAs: date)
+        }) {
+            intensity = ConflictIntensity(string: conflict.intensity) ?? .moderate
+            userText = conflict.notes ?? ""
+        } else {
+            intensity = .moderate
+            userText = ""
+        }
+    }
+    //
+    //    private func toggleConflict(for date: Date) {
+    //        try? conflictManager.toggleConflict(
+    //            date: date,
+    //            person: selectedPerson,
+    //            notes: userText,
+    //            intensity: intensity
+    //        )
+    //    }
+    
+    private func save(notes: String) {
+        try? conflictManager.saveConflict(
+            date: dates[centeredIndex],
+            person: selectedPerson,
+            notes: notes,
+            intensity: intensity
+        )
+    }
+    
+    private func saveIfExists() {
+        if (try? conflictManager.fetchConflict(for: dates[centeredIndex])) != nil {
+            save(notes: userText)
+        }
+    }
+    
+    
+    // MARK: - Functions
+    private func dayOfWeek(from date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "E"
+        return formatter.string(from: date)
+    }
+    
+    private func dayAndMonth(from date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale.current // Use the device's current locale
+        formatter.dateStyle = .medium // Use medium style for date (includes day and month, adapts to locale)
+        formatter.timeStyle = .none // Exclude time
+        // Optionally, customize to ensure only day and month are shown
+        formatter.setLocalizedDateFormatFromTemplate("dMMMM") // Template for day and month
+        return formatter.string(from: date)
+    }
+    private func year(from date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy"
+        return formatter.string(from: date)
+    }
+    
+    
+    
+    private func toggleConflictForDate(date: Date, index: Int) {
+        Task {
+            do {
+                // If not centered, scroll to center it first
+                if index != centeredIndex {
+                    withAnimation(.spring()) {
+                        scrollPosition = index
+                    }
+                    // Wait briefly for scroll to complete and centeredIndex to update
+                    try await Task.sleep(nanoseconds: 300_000_000) // 0.3s delay
+                }
+                //            let centerDate = pastFiveDates[centeredIndex]
+                try await conflictManager.toggleConflict(
+                    date: date,
+                    person: selectedPerson,
+                    notes: userText,
+                    intensity: intensity
+                )
+                // Refresh UI state after toggle (FetchRequest will update conflicts)
+                refreshUIState(for: date)
+            } catch {
+                print("Error toggling conflict: \(error)")
+            }
+        }
+    }
+    
+}
+// MARK: - Date Circle View
+struct DateCircleView: View {
+let date: Date
+let index: Int
+let centeredIndex: Int
+let conflicts: FetchedResults<Conflict>
+@Binding var selectedDateIndex: Int?
+@Binding var scrollPosition: Int?
+let onTap: () -> Void
+
+private func hasConflict() -> Bool {
+    conflicts.contains { Calendar.current.isDate($0.date!, inSameDayAs: date) }
+}
+
+private func conflictIntensity() -> ConflictIntensity {
+    conflicts.first { Calendar.current.isDate($0.date!, inSameDayAs: date) }
+        .flatMap { ConflictIntensity(string: $0.intensity) } ?? .moderate
+}
+
+var body: some View {
+    ZStack {
+        Text(dayOfWeek(from: date))
+            .offset(x: 0, y: -75)
+            .font(.title)
+            .foregroundStyle(Color(hex: "#7F809E"))
+        
+        ZStack {
+            let circleColor: Color = hasConflict() ? conflictIntensity().color : .clear
+            let circleText: String = {
+                switch conflictIntensity() {
+                case .minor: return "☹️"
+                case .moderate: return "😡"
+                case .severe: return "👿"
+                }
+            }()
+            
+            // Circle
+            Circle()
+                .fill(circleColor)
+                .stroke(hasConflict() ? circleColor : Color(hex: "#7F809E").opacity(0.5), lineWidth: 2)
+                .frame(width: 100, height: 100)
+            
+            // Text
+            Text(hasConflict() ? circleText : "\(Calendar.current.component(.day, from: date))")
+                .font(.largeTitle)
+                .foregroundStyle(hasConflict() ? Color.white : Color(hex: "#7F809E"))
+        }
+    }
+    .contentShape(Rectangle())
+    .onTapGesture {
+        if index == centeredIndex {
+            onTap() // Toggle conflict
+            // Trigger haptic feedback for conflict toggle
+            UIImpactFeedbackGenerator(style: .rigid).impactOccurred(intensity: 0.7)
+        } else {
+            withAnimation(.spring()) {
+                scrollPosition = index
+                selectedDateIndex = index
+            }
+        }
+    }
+    .sensoryFeedback(.impact(flexibility: .solid, intensity: 0.5), trigger: selectedDateIndex)
+}
+
+private func dayOfWeek(from date: Date) -> String {
+    let formatter = DateFormatter()
+    formatter.dateFormat = "E"
+    return formatter.string(from: date)
+}
+}
+
+
+struct TruncatedSizeKey: PreferenceKey {
+static var defaultValue: CGSize = .zero
+static func reduce(value: inout CGSize, nextValue: () -> CGSize) {
+    value = nextValue()
+}
+}
+
+struct FullSizeKey: PreferenceKey {
+static var defaultValue: CGSize = .zero
+static func reduce(value: inout CGSize, nextValue: () -> CGSize) {
+    value = nextValue()
+}
+}
+
+struct LimitedText: View {
+let text: String
+let lineLimit: Int
+let font: Font
+let onViewMore: () -> Void
+
+@State private var truncatedSize: CGSize = .zero
+@State private var fullSize: CGSize = .zero
+
+var isTruncated: Bool {
+    truncatedSize.height < fullSize.height
+}
+
+var body: some View {
+    VStack(alignment: .leading, spacing: 4) {
+        ZStack(alignment: .topLeading) {
+            Text(text)
+                .font(font)
+                .lineLimit(lineLimit)
+                .background(GeometryReader { geo in
+                    Color.clear.preference(key: TruncatedSizeKey.self, value: geo.size)
+                })
+                .onPreferenceChange(TruncatedSizeKey.self) { truncatedSize = $0 }
+            
+            Text(text)
+                .font(font)
+                .lineLimit(nil)
+                .fixedSize(horizontal: false, vertical: true)
+                .hidden()
+                .background(GeometryReader { geo in
+                    Color.clear.preference(key: FullSizeKey.self, value: geo.size)
+                })
+                .onPreferenceChange(FullSizeKey.self) { fullSize = $0 }
+        }
+        
+        if isTruncated {
+            Button("View more") {
+                onViewMore()
+            }
+            .font(.subheadline)
+            .foregroundColor(.blue)
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+    .frame(maxWidth: .infinity, alignment: .topLeading)
+}
+}
+// MARK: - FullNoteView
+struct FullNoteView: View {
+let note: String
+@Environment(\.dismiss) private var dismiss
+
+var body: some View {
+    NavigationStack {
+        ScrollView {
+            Text(note)
+                .font(.title2)
+                .padding()
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .navigationTitle("Note")
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button("Done") {
+                    dismiss()
+                }
+            }
+        }
+    }
+}
+}
