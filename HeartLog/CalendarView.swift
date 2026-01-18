@@ -30,6 +30,7 @@ struct CalendarView: View {
     @State private var selectedDate: Date? = nil
     @State private var selectedConflict: Conflict? = nil
     @State private var showSettings: Bool = false
+    @State private var showStatistics: Bool = false
     @State private var dateForNewConflict: IdentifiableDate? = nil
     @State private var tappedDate: Date? = nil
     @State private var syncStatus: SyncStatus = .syncing
@@ -218,17 +219,22 @@ struct CalendarView: View {
             VStack(alignment: .leading, spacing: 0) {
                 // Total conflicts display with settings gear
                 HStack {
-                    VStack(alignment: .leading) {
-                        Text("Total Conflicts")
-                            .foregroundStyle(.gray)
-                        Text("\(totalConflicts)")
-                            .font(.title)
-                            .fontWeight(.semibold)
-                            .padding(.top, 6)
+                    Button(action: {
+                        showStatistics = true
+                    }) {
+                        VStack(alignment: .leading) {
+                            Text("Total Conflicts")
+                                .foregroundStyle(.gray)
+                            Text("\(totalConflicts)")
+                                .font(.title)
+                                .fontWeight(.semibold)
+                                .padding(.top, 6)
+                        }
                     }
-                    
+                    .buttonStyle(.plain)
+
                     Spacer()
-                    
+
                     Button(action: {
                         showSettings = true
                     }) {
@@ -403,6 +409,10 @@ struct CalendarView: View {
             }
             .navigationDestination(isPresented: $showSettings) {
                 SettingsView()
+            }
+            .navigationDestination(isPresented: $showStatistics) {
+                StatisticsView()
+                    .environmentObject(conflictManager)
             }
             .navigationBarTitleDisplayMode(.inline)
             .overlay(alignment: .top) {

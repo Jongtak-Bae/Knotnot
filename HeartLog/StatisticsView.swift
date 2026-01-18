@@ -1,0 +1,219 @@
+import SwiftUI
+import CoreData
+
+struct StatisticsView: View {
+    @EnvironmentObject private var conflictManager: ConflictManager
+    @FetchRequest(
+        sortDescriptors: [NSSortDescriptor(keyPath: \Conflict.date, ascending: false)],
+        animation: .default)
+    private var conflicts: FetchedResults<Conflict>
+
+    private var totalConflicts: Int {
+        conflicts.count
+    }
+
+    private var conflictsThisYear: Int {
+        let calendar = Calendar.current
+        let currentYear = calendar.component(.year, from: Date())
+        return conflicts.filter { conflict in
+            guard let date = conflict.date else { return false }
+            return calendar.component(.year, from: date) == currentYear
+        }.count
+    }
+
+    private var monthAverage: Int {
+        guard !conflicts.isEmpty else { return 0 }
+
+        let calendar = Calendar.current
+        let dates = conflicts.compactMap { $0.date }
+
+        guard let earliestDate = dates.min(),
+              let latestDate = dates.max() else { return 0 }
+
+        let components = calendar.dateComponents([.month], from: earliestDate, to: latestDate)
+        let months = max((components.month ?? 0) + 1, 1)
+
+        return conflicts.count / months
+    }
+
+    private var streakRecord: Int {
+        guard !conflicts.isEmpty else { return 0 }
+
+        let calendar = Calendar.current
+        let conflictDates = Set(conflicts.compactMap { conflict -> Date? in
+            guard let date = conflict.date else { return nil }
+            return calendar.startOfDay(for: date)
+        })
+
+        guard let earliestDate = conflictDates.min(),
+              let latestDate = conflictDates.max() else { return 0 }
+
+        var currentStreak = 0
+        var maxStreak = 0
+        var currentDate = earliestDate
+
+        while currentDate <= latestDate {
+            if !conflictDates.contains(currentDate) {
+                currentStreak += 1
+                maxStreak = max(maxStreak, currentStreak)
+            } else {
+                currentStreak = 0
+            }
+            currentDate = calendar.date(byAdding: .day, value: 1, to: currentDate)!
+        }
+
+        return maxStreak
+    }
+
+    private var conflictsWithNotes: [Conflict] {
+        conflicts.filter { conflict in
+            guard let notes = conflict.notes else { return false }
+            return !notes.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        }
+    }
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 20) {
+                // Statistics Cards
+                VStack(spacing: 12) {
+                    HStack(spacing: 12) {
+                        StatCard(label: "Total Conflicts", value: "\(totalConflicts)")
+                        StatCard(label: "This Year", value: "\(conflictsThisYear)")
+                    }
+
+                    HStack(spacing: 12) {
+                        StatCard(label: "Month Avg", value: "\(monthAverage)")
+                        StatCard(label: "Streak Record", value: "\(streakRecord)", showInfoIcon: true)
+                    }
+                }
+                .padding(.horizontal, 20)
+                .padding(.top, 20)
+
+                // Notes Section
+                VStack(alignment: .leading, spacing: 16) {
+                    Text("Notes")
+                        .font(.system(size: 24, weight: .semibold))
+                        .padding(.horizontal, 30)
+
+                    if conflictsWithNotes.isEmpty {
+                        Text("No notes yet")
+                            .foregroundColor(.gray)
+                            .padding(.horizontal, 30)
+                            .padding(.top, 20)
+                    } else {
+                        ForEach(conflictsWithNotes, id: \.id) { conflict in
+                            NoteCard(conflict: conflict)
+                                .padding(.horizontal, 20)
+                        }
+                    }
+                }
+                .padding(.top, 32)
+
+                Spacer(minLength: 20)
+            }
+        }
+        .navigationTitle("Statistics")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+// MARK: - Stat Card Component
+struct StatCard: View {
+    let label: String
+    let value: String
+    var showInfoIcon: Bool = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack {
+                Text(label)
+                    .font(.system(size: 17))
+                    .foregroundColor(.primary.opacity(0.5))
+                    .padding(.top, 24)
+                    .padding(.leading, 19)
+
+                if showInfoIcon {
+                    Spacer()
+                    Image(systemName: "info.circle")
+                        .font(.system(size: 17))
+                        .foregroundColor(.primary.opacity(0.5))
+                        .padding(.top, 24)
+                        .padding(.trailing, 19)
+                }
+            }
+
+            Text(value)
+                .font(.system(size: 34, weight: .semibold))
+                .padding(.top, 15)
+                .padding(.leading, 19)
+                .padding(.bottom, 24)
+
+            Spacer()
+        }
+        .frame(width: 167, height: 128, alignment: .topLeading)
+        .background(
+            RoundedRectangle(cornerRadius: 30)
+                .stroke(Color(hex: "#b0b0c9"), lineWidth: 1)
+        )
+    }
+}
+
+// MARK: - Note Card Component
+struct NoteCard: View {
+    let conflict: Conflict
+
+    private var dateFormatter: DateFormatter {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MMM d"
+        return formatter
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Text(conflict.date.map { dateFormatter.string(from: $0) } ?? "")
+                .font(.system(size: 17, weight: .medium))
+                .foregroundColor(.primary.opacity(0.5))
+                .padding(.top, 14)
+                .padding(.leading, 27)
+
+            HStack {
+                Text(conflict.notes ?? "")
+                    .font(.system(size: 17, weight: .medium))
+                    .foregroundColor(.primary)
+                    .lineLimit(4)
+                    .truncationMode(.tail)
+                    .padding(.top, 29)
+                    .padding(.leading, 27)
+                    .padding(.trailing, 27)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                Spacer()
+            }
+
+            HStack {
+                Spacer()
+                Image(systemName: "chevron.down")
+                    .font(.system(size: 17))
+                    .foregroundColor(.primary.opacity(0.5))
+                    .padding(.trailing, 27)
+                    .padding(.bottom, 14)
+            }
+        }
+        .frame(height: 145)
+        .frame(maxWidth: .infinity)
+        .background(
+            RoundedRectangle(cornerRadius: 30)
+                .stroke(Color(hex: "#b0b0c9"), lineWidth: 1)
+        )
+    }
+}
+
+// MARK: - Preview
+#Preview {
+    NavigationStack {
+        StatisticsView()
+            .environment(\.managedObjectContext, PersistenceController.shared.container.viewContext)
+            .environmentObject(ConflictManager(context: PersistenceController.shared.container.viewContext))
+    }
+}
