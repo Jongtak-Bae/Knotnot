@@ -94,7 +94,7 @@ struct CalendarView: View {
     }
     
     private var totalConflicts: Int {
-        conflicts.count
+        conflicts.filter { $0.date != nil }.count
     }
     
     private func hasConflict(on date: Date) -> Bool {

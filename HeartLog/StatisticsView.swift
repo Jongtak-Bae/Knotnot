@@ -9,7 +9,7 @@ struct StatisticsView: View {
     private var conflicts: FetchedResults<Conflict>
 
     private var totalConflicts: Int {
-        conflicts.count
+        conflicts.filter { $0.date != nil }.count
     }
 
     private var conflictsThisYear: Int {
@@ -162,6 +162,7 @@ struct StatCard: View {
 // MARK: - Note Card Component
 struct NoteCard: View {
     let conflict: Conflict
+    @State private var isExpanded: Bool = false
 
     private var dateFormatter: DateFormatter {
         let formatter = DateFormatter()
@@ -177,11 +178,11 @@ struct NoteCard: View {
                 .padding(.top, 14)
                 .padding(.leading, 27)
 
-            HStack {
+            HStack(alignment: .top) {
                 Text(conflict.notes ?? "")
                     .font(.system(size: 17, weight: .medium))
                     .foregroundColor(.primary)
-                    .lineLimit(4)
+                    .lineLimit(isExpanded ? nil : 4)
                     .truncationMode(.tail)
                     .padding(.top, 29)
                     .padding(.leading, 27)
@@ -193,14 +194,21 @@ struct NoteCard: View {
 
             HStack {
                 Spacer()
-                Image(systemName: "chevron.down")
-                    .font(.system(size: 17))
-                    .foregroundColor(.primary.opacity(0.5))
-                    .padding(.trailing, 27)
-                    .padding(.bottom, 14)
+                Button(action: {
+                    withAnimation(.easeInOut(duration: 0.3)) {
+                        isExpanded.toggle()
+                    }
+                }) {
+                    Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
+                        .font(.system(size: 17))
+                        .foregroundColor(.primary.opacity(0.5))
+                        .padding(.trailing, 27)
+                        .padding(.bottom, 14)
+                        .contentShape(Rectangle())
+                }
             }
         }
-        .frame(height: 145)
+        .frame(minHeight: 145)
         .frame(maxWidth: .infinity)
         .background(
             RoundedRectangle(cornerRadius: 30)
