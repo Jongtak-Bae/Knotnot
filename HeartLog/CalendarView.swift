@@ -136,6 +136,16 @@ struct CalendarView: View {
         return false
     }
 
+    private func isFutureDate(_ date: Date) -> Bool {
+        let today = calendar.startOfDay(for: Date())
+        let compareDate = calendar.startOfDay(for: date)
+        return compareDate > today
+    }
+
+    private func isToday(_ date: Date) -> Bool {
+        calendar.isDateInToday(date)
+    }
+
     private func generateDatesAround(date: Date) -> [Date] {
         var dates: [Date] = []
         for offset in -5...5 {
@@ -300,7 +310,10 @@ struct CalendarView: View {
                                 }
 
                                 ZStack {
+                                    let isFuture = isFutureDate(date)
+                                    let isTodayDate = isToday(date)
                                     let circleColor: Color = hasConflict(on: date) ? conflictIntensity(on: date).color : .clear
+
                                     Circle()
                                         .fill(circleColor)
                                         .stroke(
@@ -309,10 +322,19 @@ struct CalendarView: View {
                                             lineWidth: selectedConflict != nil && selectedConflict?.date != nil && Calendar.current.isDate(date, inSameDayAs: selectedConflict!.date!) ? 3 : 0
                                         )
                                         .frame(width: 40, height: 40)
+                                        .opacity(isFuture ? 0.3 : 1.0)
+
+                                    // Today indicator border
+                                    if isTodayDate {
+                                        Circle()
+                                            .stroke(Color.gray.opacity(0.5), lineWidth: 2)
+                                            .frame(width: 40, height: 40)
+                                    }
 
                                     Text(hasConflict(on: date) ? conflictEmoji(on: date) : "\(calendar.component(.day, from: date))")
                                         .font(.body)
                                         .foregroundColor(hasConflict(on: date) ? .white : .primary)
+                                        .opacity(isFuture ? 0.3 : 1.0)
                                 }
                                 if hasNote(on: date) {
                                     Circle()
@@ -324,9 +346,14 @@ struct CalendarView: View {
                             .simultaneousGesture(
                                 DragGesture(minimumDistance: 0)
                                     .onChanged { _ in
+                                        guard !isFutureDate(date) else { return }
                                         tappedDate = date
                                     }
                                     .onEnded { _ in
+                                        guard !isFutureDate(date) else {
+                                            tappedDate = nil
+                                            return
+                                        }
                                         tappedDate = nil
                                         if hasConflict(on: date) {
                                             selectedConflict = conflicts.first {
