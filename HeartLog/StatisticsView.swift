@@ -78,13 +78,13 @@ struct StatisticsView: View {
                 // Statistics Cards
                 VStack(spacing: 12) {
                     HStack(spacing: 12) {
-                        StatCard(label: "Total Conflicts", value: "\(totalConflicts)")
-                        StatCard(label: "This Year", value: "\(conflictsThisYear)")
+                        StatCard(label: NSLocalizedString("Total Conflicts", comment: "Total conflicts stat label"), value: "\(totalConflicts)")
+                        StatCard(label: NSLocalizedString("This Year", comment: "This year stat label"), value: "\(conflictsThisYear)")
                     }
 
                     HStack(spacing: 12) {
-                        StatCard(label: "Month Avg", value: "\(monthAverage)")
-                        StatCard(label: "Streak Record", value: "\(streakRecord)", showInfoIcon: true)
+                        StatCard(label: NSLocalizedString("Month Avg", comment: "Month average stat label"), value: "\(monthAverage)")
+                        StatCard(label: NSLocalizedString("Streak", comment: "Streak record stat label"), value: "\(streakRecord)", showInfoIcon: true)
                     }
                 }
                 .padding(.horizontal, 20)
@@ -92,12 +92,12 @@ struct StatisticsView: View {
 
                 // Notes Section
                 VStack(alignment: .leading, spacing: 16) {
-                    Text("Notes")
+                    Text(NSLocalizedString("Notes", comment: "Notes section header"))
                         .font(.system(size: 24, weight: .semibold))
                         .padding(.horizontal, 30)
 
                     if conflictsWithNotes.isEmpty {
-                        Text("No notes yet")
+                        Text(NSLocalizedString("No notes yet", comment: "Empty notes message"))
                             .foregroundColor(.gray)
                             .padding(.horizontal, 30)
                             .padding(.top, 20)
@@ -123,6 +123,7 @@ struct StatCard: View {
     let label: String
     let value: String
     var showInfoIcon: Bool = false
+    @State private var showInfoPopover: Bool = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -135,11 +136,21 @@ struct StatCard: View {
 
                 if showInfoIcon {
                     Spacer()
-                    Image(systemName: "info.circle")
-                        .font(.system(size: 17))
-                        .foregroundColor(.primary.opacity(0.5))
-                        .padding(.top, 24)
-                        .padding(.trailing, 19)
+                    Button(action: {
+                        showInfoPopover = true
+                    }) {
+                        Image(systemName: "info.circle")
+                            .font(.system(size: 17))
+                            .foregroundColor(.primary.opacity(0.5))
+                            .padding(.top, 24)
+                            .padding(.trailing, 19)
+                    }
+                    .popover(isPresented: $showInfoPopover, arrowEdge: .top) {
+                        Text(NSLocalizedString("The longest number of consecutive days without any conflicts.", comment: "Streak record explanation"))
+                            .font(.system(size: 15))
+                            .padding()
+                            .presentationCompactAdaptation(.popover)
+                    }
                 }
             }
 
