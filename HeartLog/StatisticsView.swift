@@ -203,6 +203,31 @@ struct NoteCard: View {
                 Spacer()
             }
 
+            // Emotion Tags
+            if let emotionsString = conflict.emotions, !emotionsString.isEmpty {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        ForEach(emotionsString.split(separator: ",").map(String.init), id: \.self) { emotion in
+                            HStack(spacing: 6) {
+                                Image(systemName: "checkmark")
+                                    .font(.system(size: 14, weight: .semibold))
+                                Text(emotion)
+                                    .font(.system(size: 17))
+                            }
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 8)
+                            .background(
+                                Capsule()
+                                    .fill(Color(hex: "#9c36b2"))
+                            )
+                        }
+                    }
+                    .padding(.horizontal, 27)
+                }
+                .padding(.top, 8)
+            }
+
             HStack {
                 Spacer()
                 Button(action: {

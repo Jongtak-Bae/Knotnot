@@ -8,13 +8,16 @@ class ConflictManager: ObservableObject {
     }
     
     // MARK: - Create/Update
-    func saveConflict(date: Date, person: String, notes: String, intensity: ConflictIntensity) throws {
+    func saveConflict(date: Date, person: String, notes: String, intensity: ConflictIntensity, emotions: [String]? = nil) throws {
         // Check if a conflict exists for the given date
         if let existingConflict = try fetchConflict(for: date) {
             // Update existing conflict
             existingConflict.person = person
             existingConflict.notes = notes
             existingConflict.intensity = intensity.stringValue
+            if let emotions = emotions {
+                existingConflict.emotions = emotions.joined(separator: ",")
+            }
         } else {
             // Create new conflict
             let newConflict = Conflict(context: context)
@@ -23,8 +26,11 @@ class ConflictManager: ObservableObject {
             newConflict.person = person
             newConflict.notes = notes
             newConflict.intensity = intensity.stringValue
+            if let emotions = emotions {
+                newConflict.emotions = emotions.joined(separator: ",")
+            }
         }
-        
+
         try context.save()
     }
     
@@ -56,7 +62,7 @@ class ConflictManager: ObservableObject {
     }
     
     // MARK: - Toggle Conflict
-    func toggleConflict(date: Date, person: String, notes: String, intensity: ConflictIntensity) throws {
+    func toggleConflict(date: Date, person: String, notes: String, intensity: ConflictIntensity, emotions: [String]? = nil) throws {
         if let existingConflict = try fetchConflict(for: date) {
             // Delete if conflict exists
             context.delete(existingConflict)
@@ -68,6 +74,9 @@ class ConflictManager: ObservableObject {
             newConflict.person = person
             newConflict.notes = notes
             newConflict.intensity = intensity.stringValue
+            if let emotions = emotions {
+                newConflict.emotions = emotions.joined(separator: ",")
+            }
         }
         try context.save()
     }

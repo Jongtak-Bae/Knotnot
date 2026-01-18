@@ -69,8 +69,10 @@ struct TextEditorRepresentable: UIViewRepresentable {
 struct NoteSheet: View {
     @Binding var userText: String
     @Binding var isPresented: Bool
+    @Binding var selectedEmotions: Set<String>
     let onSave: (String) -> Void
     @State private var draftText: String = ""
+    @State private var draftEmotions: Set<String> = []
     @FocusState private var isTextEditorFocused: Bool
     
     var body: some View {
@@ -101,7 +103,35 @@ struct NoteSheet: View {
 //                        .stroke(Color.gray.opacity(0.5))
 //                )
                 .padding(.horizontal)
-                
+
+                // Emotion Tags
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("How are you feeling?")
+                        .font(.system(size: 17, weight: .medium))
+                        .foregroundColor(.primary.opacity(0.7))
+                        .padding(.horizontal, 15)
+
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 12) {
+                            ForEach(["Anger", "Sadness", "Misunderstanding", "Disappointment", "Avoidance"], id: \.self) { emotion in
+                                EmotionChip(
+                                    emotion: emotion,
+                                    isSelected: draftEmotions.contains(emotion),
+                                    onTap: {
+                                        if draftEmotions.contains(emotion) {
+                                            draftEmotions.remove(emotion)
+                                        } else {
+                                            draftEmotions.insert(emotion)
+                                        }
+                                    }
+                                )
+                            }
+                        }
+                        .padding(.horizontal, 15)
+                    }
+                }
+                .padding(.top, 20)
+
                 Spacer()
             }
             //.navigationTitle("Add Note")
@@ -109,6 +139,7 @@ struct NoteSheet: View {
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button(action: {
+                        selectedEmotions = draftEmotions
                         onSave(draftText)
                         isPresented = false
                     }) {
@@ -130,6 +161,7 @@ struct NoteSheet: View {
             }
             .onAppear {
                 draftText = userText
+                draftEmotions = selectedEmotions
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
                     isTextEditorFocused = true // Trigger focus to show keyboard and cursor
                 }
@@ -141,12 +173,58 @@ struct NoteSheet: View {
 struct NoteSheet_Previews: PreviewProvider {
     @State static var text = ""
     @State static var isPresented = true
-    
+    @State static var emotions: Set<String> = []
+
     static var previews: some View {
         NoteSheet(
             userText: $text,
             isPresented: $isPresented,
+            selectedEmotions: $emotions,
             onSave: { _ in }
         )
+    }
+}
+
+// MARK: - EmotionChip (Shared Component)
+struct EmotionChip: View {
+    let emotion: String
+    let isSelected: Bool
+    let onTap: () -> Void
+
+    private var emotionIcon: String {
+        switch emotion {
+        case "Anger": return "flame.fill"
+        case "Sadness": return "cloud.rain.fill"
+        case "Misunderstanding": return "bubble.left.and.exclamationmark.bubble.right.fill"
+        default: return "circle.fill"
+        }
+    }
+
+    var body: some View {
+        Button(action: onTap) {
+            HStack(spacing: 6) {
+                if isSelected {
+                    Image(systemName: "checkmark")
+                        .font(.system(size: 14, weight: .semibold))
+                } else {
+                    Text("+")
+                        .font(.system(size: 14, weight: .medium))
+                }
+                Text(emotion)
+                    .font(.system(size: 17))
+            }
+            .foregroundColor(isSelected ? .white : Color(hex: "#7f809e"))
+            .padding(.horizontal, 16)
+            .padding(.vertical, 8)
+            .background(
+                Capsule()
+                    .fill(isSelected ? Color(hex: "#9c36b2") : Color.clear)
+                    .overlay(
+                        Capsule()
+                            .stroke(Color(hex: "#b0b0c9"), lineWidth: isSelected ? 0 : 1)
+                    )
+            )
+        }
+        .buttonStyle(.plain)
     }
 }

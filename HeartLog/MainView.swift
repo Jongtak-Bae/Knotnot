@@ -17,8 +17,9 @@ struct MainView: View {
     @State private var selectedDateIndex: Int? = nil
     @State private var centeredIndex: Int = 0
     @State private var scrollPosition: Int? = nil
-    
+
     @State private var intensity: ConflictIntensity = .moderate // Conflict intensity
+    @State private var selectedEmotions: Set<String> = []
     
     @State private var selectedCircle: Int? = nil
     @Namespace private var animation
@@ -64,13 +65,15 @@ struct MainView: View {
             NoteSheet(
                 userText: $userText,
                 isPresented: $isSheetPresented,
+                selectedEmotions: $selectedEmotions,
                 onSave: { notes in
                     do {
                         try conflictManager.saveConflict(
                             date: pastFiveDates[centeredIndex],
                             person: selectedPerson,
                             notes: notes,
-                            intensity: intensity
+                            intensity: intensity,
+                            emotions: Array(selectedEmotions)
                         )
                     } catch {
                         print("Error saving conflict: \(error)")

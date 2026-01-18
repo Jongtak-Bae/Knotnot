@@ -240,8 +240,16 @@ struct CalendarView: View {
                                 .fontWeight(.semibold)
                                 .padding(.top, 6)
                         }
+                        .frame(maxWidth: 100, alignment: .leading)
+                        .padding(.vertical, 12)
+                        .padding(.horizontal, 16)
+                        .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
+                    .background(
+                        RoundedRectangle(cornerRadius: 20)
+                            .stroke(Color(hex: "#b0b0c9"), lineWidth: 1)
+                    )
 
                     Spacer()
 
@@ -523,8 +531,37 @@ struct ConflictDetailView: View {
                             .multilineTextAlignment(.leading)
                             .frame(maxWidth: .infinity, alignment: .leading)
                     }
+
+                    // Emotion Tags
+                    if let emotionsString = conflict.emotions, !emotionsString.isEmpty {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Emotions:")
+                                .font(.headline)
+                                .foregroundColor(.gray)
+
+                            ScrollView(.horizontal, showsIndicators: false) {
+                                HStack(spacing: 8) {
+                                    ForEach(emotionsString.split(separator: ",").map(String.init), id: \.self) { emotion in
+                                        HStack(spacing: 6) {
+                                            Image(systemName: "checkmark")
+                                                .font(.system(size: 14, weight: .semibold))
+                                            Text(emotion)
+                                                .font(.system(size: 17))
+                                        }
+                                        .foregroundColor(.white)
+                                        .padding(.horizontal, 16)
+                                        .padding(.vertical, 8)
+                                        .background(
+                                            Capsule()
+                                                .fill(Color(hex: "#9c36b2"))
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
-                
+
                 Spacer()
 
                 VStack(spacing: 10) {

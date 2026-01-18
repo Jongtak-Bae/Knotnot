@@ -17,6 +17,7 @@ struct ConflictEditorView: View {
     @State private var intensity: ConflictIntensity = .moderate
     @State private var userText: String = ""
     @State private var isSheetPresented = false
+    @State private var selectedEmotions: Set<String> = []
 
     init(dates: [Date], initialDate: Date) {
         self.dates = dates
@@ -119,19 +120,52 @@ struct ConflictEditorView: View {
                 .padding(.top, 20)
             }
 
-            // MARK: Display Notes
-            if !userText.isEmpty {
+            // MARK: Display Notes and Emotions
+            if !userText.isEmpty || !selectedEmotions.isEmpty {
                 ZStack {
-                    Text(userText)
-                        .font(.system(size: 17, weight: .medium))
-                        .foregroundColor(.primary)
-                        .lineLimit(4)
-                        .truncationMode(.tail)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                        .padding(.leading, 24)
-                        .padding(.top, 25)
-                        .padding(.trailing, 24)
-                        .padding(.bottom, 25)
+                    VStack(alignment: .leading, spacing: 12) {
+                        // Emotion Tags
+                        if !selectedEmotions.isEmpty {
+                            ScrollView(.horizontal, showsIndicators: false) {
+                                HStack(spacing: 8) {
+                                    ForEach(Array(selectedEmotions).sorted(), id: \.self) { emotion in
+                                        HStack(spacing: 6) {
+                                            Image(systemName: "checkmark")
+                                                .font(.system(size: 14, weight: .semibold))
+                                            Text(emotion)
+                                                .font(.system(size: 17))
+                                        }
+                                        .foregroundColor(.white)
+                                        .padding(.horizontal, 16)
+                                        .padding(.vertical, 8)
+                                        .background(
+                                            Capsule()
+                                                .fill(Color(hex: "#9c36b2"))
+                                        )
+                                    }
+                                }
+                            }
+                            .padding(.top, 16)
+                            .padding(.horizontal, 24)
+                        }
+
+                        // Note Text
+                        if !userText.isEmpty {
+                            Text(userText)
+                                .font(.system(size: 17, weight: .medium))
+                                .foregroundColor(.primary)
+                                .lineLimit(4)
+                                .truncationMode(.tail)
+                                .frame(maxWidth: .infinity, alignment: .topLeading)
+                                .padding(.horizontal, 24)
+                                .padding(.top, selectedEmotions.isEmpty ? 25 : 8)
+                                .padding(.bottom, 25)
+                        } else {
+                            Spacer()
+                                .padding(.bottom, 25)
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .topLeading)
 
                     VStack {
                         Spacer()
@@ -155,7 +189,7 @@ struct ConflictEditorView: View {
                         }
                     }
                 }
-                .frame(height: 145)
+                .frame(minHeight: 100)
                 .background(
                     RoundedRectangle(cornerRadius: 30)
                         .stroke(Color(hex: "#b0b0c9"), lineWidth: 1)
@@ -165,11 +199,13 @@ struct ConflictEditorView: View {
             }
 
             Spacer()
+                .frame(minHeight: 100)
         }
         .sheet(isPresented: $isSheetPresented) {
             NoteSheet(
                 userText: $userText,
                 isPresented: $isSheetPresented,
+                selectedEmotions: $selectedEmotions,
                 onSave: { notes in
                     save(notes: notes)
                 }
@@ -185,11 +221,15 @@ struct ConflictEditorView: View {
         }) {
             intensity = ConflictIntensity(string: conflict.intensity) ?? .moderate
             userText = conflict.notes ?? ""
-           
+            if let emotionsString = conflict.emotions, !emotionsString.isEmpty {
+                selectedEmotions = Set(emotionsString.split(separator: ",").map(String.init))
+            } else {
+                selectedEmotions = []
+            }
         } else {
             intensity = .moderate
             userText = ""
-          
+            selectedEmotions = []
         }
     }
     //
@@ -207,7 +247,8 @@ struct ConflictEditorView: View {
             date: dates[centeredIndex],
             person: selectedPerson,
             notes: notes,
-            intensity: intensity
+            intensity: intensity,
+            emotions: Array(selectedEmotions)
         )
         userText = notes
     }
@@ -259,7 +300,8 @@ struct ConflictEditorView: View {
                     date: date,
                     person: selectedPerson,
                     notes: userText,
-                    intensity: intensity
+                    intensity: intensity,
+                    emotions: Array(selectedEmotions)
                 )
                 // Refresh UI state after toggle (FetchRequest will update conflicts)
                 refreshUIState(for: date)
