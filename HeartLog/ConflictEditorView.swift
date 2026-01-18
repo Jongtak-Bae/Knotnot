@@ -32,17 +32,19 @@ struct ConflictEditorView: View {
     
     var body: some View {
         VStack {
-            Spacer()
             // MARK: Date header
             VStack(alignment: .leading) {
                 Text(year(from: dates[centeredIndex]))
                     .font(.largeTitle)
                     .foregroundStyle(.gray)
-                
+
                 Text(dayAndMonth(from: dates[centeredIndex]))
                     .font(.system(size: 48))
                     .fontWeight(.semibold)
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.top, 60)
+            .padding(.leading, 30)
             ZStack{
                 RoundedRectangle(cornerRadius: 70)
                     .frame(width: 140, height: 200)
