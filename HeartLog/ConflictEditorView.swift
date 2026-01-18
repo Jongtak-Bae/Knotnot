@@ -124,7 +124,7 @@ struct ConflictEditorView: View {
                 ZStack {
                     Text(userText)
                         .font(.system(size: 17, weight: .medium))
-                        .foregroundColor(.black)
+                        .foregroundColor(.primary)
                         .lineLimit(4)
                         .truncationMode(.tail)
                         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
@@ -146,7 +146,7 @@ struct ConflictEditorView: View {
                                     .frame(width: 54, height: 54)
                                     .background(
                                         RoundedRectangle(cornerRadius: 30)
-                                            .fill(Color.white)
+                                            .fill(Color(uiColor: .systemBackground))
                                             .stroke(Color(hex: "#b0b0c9"), lineWidth: 1)
                                     )
                             }
