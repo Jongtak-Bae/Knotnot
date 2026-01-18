@@ -10,9 +10,22 @@
 		B1CC8BE72E7AF63400A58890 /* HeartLog.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = HeartLog.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		E781FAA42F1C4C4D00388640 /* Exceptions for "HeartLog" folder in "HeartLog" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = B1CC8BE62E7AF63400A58890 /* HeartLog */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		B1CC8BE92E7AF63400A58890 /* HeartLog */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				E781FAA42F1C4C4D00388640 /* Exceptions for "HeartLog" folder in "HeartLog" target */,
+			);
 			path = HeartLog;
 			sourceTree = "<group>";
 		};
@@ -252,12 +265,14 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = HeartLog/HeartLog.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "\"HeartLog/Preview Content\"";
 				DEVELOPMENT_TEAM = 5YFWQKPJPK;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = HeartLog/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "Knot Not";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
@@ -285,12 +300,14 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = HeartLog/HeartLog.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "\"HeartLog/Preview Content\"";
 				DEVELOPMENT_TEAM = 5YFWQKPJPK;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = HeartLog/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "Knot Not";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;

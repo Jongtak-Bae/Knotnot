@@ -29,7 +29,7 @@ struct PersistenceController {
             // Configure CloudKit container
             // Note: Replace with your actual CloudKit container identifier from Xcode capabilities
             description?.cloudKitContainerOptions = NSPersistentCloudKitContainerOptions(
-                containerIdentifier: "iCloud.com.yourteam.Knotnot"
+                containerIdentifier: "iCloud.com.jeongpei.Knotnot"
             )
 
             // Enable remote change notifications

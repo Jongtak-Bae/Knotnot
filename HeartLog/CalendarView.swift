@@ -34,6 +34,8 @@ struct CalendarView: View {
     @State private var tappedDate: Date? = nil
     @State private var syncStatus: SyncStatus = .syncing
     @State private var lastSyncTime: Date?
+    @State private var showSyncBanner: Bool = false
+    @State private var bannerDismissTask: Task<Void, Never>?
 
     private var calendar: Calendar {
         var cal = Calendar.current
@@ -150,6 +152,28 @@ struct CalendarView: View {
             } else {
                 syncStatus = .notAvailable(message ?? "iCloud not available")
             }
+            // Don't show banner on initial status check, only on actual import events
+        }
+    }
+
+    private func scheduleBannerDismissal() {
+        // Cancel existing task
+        bannerDismissTask?.cancel()
+
+        // Show banner
+        withAnimation(.easeInOut(duration: 0.3)) {
+            showSyncBanner = true
+        }
+
+        // Schedule auto-dismiss after 5 seconds
+        bannerDismissTask = Task {
+            try? await Task.sleep(nanoseconds: 5_000_000_000) // 5 seconds
+
+            if !Task.isCancelled {
+                withAnimation(.easeInOut(duration: 0.3)) {
+                    showSyncBanner = false
+                }
+            }
         }
     }
 
@@ -163,7 +187,11 @@ struct CalendarView: View {
                 as? NSPersistentCloudKitContainer.Event {
 
                 if event.type == .import || event.type == .export {
-                    syncStatus = .syncing
+                    // Only show banner for import events (receiving from iCloud)
+                    if event.type == .import {
+                        syncStatus = .syncing
+                        scheduleBannerDismissal()
+                    }
 
                     // Update to available after sync completes
                     DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
@@ -172,6 +200,11 @@ struct CalendarView: View {
                             lastSyncTime = Date()
                         } else {
                             syncStatus = .error(event.error?.localizedDescription ?? "Sync error")
+                        }
+
+                        // Only show banner for import events
+                        if event.type == .import {
+                            scheduleBannerDismissal()
                         }
                     }
                 }
@@ -183,9 +216,6 @@ struct CalendarView: View {
     var body: some View {
         NavigationStack {
             VStack(alignment: .leading, spacing: 0) {
-                // iCloud Sync Status Banner
-                SyncStatusBanner(status: syncStatus, lastSyncTime: lastSyncTime)
-
                 // Total conflicts display with settings gear
                 HStack {
                     VStack(alignment: .leading) {
@@ -249,7 +279,7 @@ struct CalendarView: View {
                                             .frame(maxWidth: .infinity)
                                     }
                                 }
-                                .padding(.horizontal)
+                                .padding()
                 
                 // Calendar grid
                 LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 10), count: 7), spacing: 20) {
@@ -375,6 +405,12 @@ struct CalendarView: View {
                 SettingsView()
             }
             .navigationBarTitleDisplayMode(.inline)
+            .overlay(alignment: .top) {
+                if showSyncBanner {
+                    SyncStatusBanner(status: syncStatus, lastSyncTime: lastSyncTime)
+                        .transition(.move(edge: .top).combined(with: .opacity))
+                }
+            }
 //            #if canImport(SwiftUI)
 //            .background {
 //                if #available(iOS 18.0, *) {
