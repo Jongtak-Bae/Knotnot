@@ -32,6 +32,8 @@ struct OnboardingView: View {
                             .font(.system(size: 48, weight: .light))
                             .foregroundColor(.black)
                             .lineSpacing(8)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .minimumScaleFactor(0.5)
                             .padding(.horizontal, 32)
                             .padding(.top, 160)
                             .frame(maxWidth: .infinity, alignment: .leading)
@@ -42,7 +44,7 @@ struct OnboardingView: View {
                         AnimatedKnotHeart(
                             startAnimation: currentPage == 0,
                             strokeColor: Color(hex: "DC12E8"),
-                            strokeWidth: 20,
+                            strokeWidth: 10,
                             animationDuration: 2.5
                         )
                         .frame(maxWidth: .infinity)
