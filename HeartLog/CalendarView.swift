@@ -21,6 +21,7 @@ enum SyncStatus {
 
 struct CalendarView: View {
     @EnvironmentObject private var conflictManager: ConflictManager
+    @EnvironmentObject private var purchaseManager: PurchaseManager
     @FetchRequest(
         sortDescriptors: [NSSortDescriptor(keyPath: \Conflict.date, ascending: true)],
         animation: .default)
@@ -31,6 +32,7 @@ struct CalendarView: View {
     @State private var selectedConflict: Conflict? = nil
     @State private var showSettings: Bool = false
     @State private var showStatistics: Bool = false
+    @State private var showPaywall: Bool = false
     @State private var dateForNewConflict: IdentifiableDate? = nil
     @State private var tappedDate: Date? = nil
     @State private var syncStatus: SyncStatus = .syncing
@@ -230,11 +232,22 @@ struct CalendarView: View {
                 // Total conflicts display with settings gear
                 HStack {
                     Button(action: {
-                        showStatistics = true
+                        if purchaseManager.isPremium {
+                            showStatistics = true
+                        } else {
+                            showPaywall = true
+                        }
                     }) {
                         VStack(alignment: .leading) {
-                            Text("Total Conflicts")
-                                .foregroundStyle(.gray)
+                            HStack(spacing: 4) {
+                                Text("Total Conflicts")
+                                    .foregroundStyle(.gray)
+                                if !purchaseManager.isPremium {
+                                    Image(systemName: "lock.fill")
+                                        .font(.caption)
+                                        .foregroundColor(Color(hex: "#A640BC"))
+                                }
+                            }
                             Text("\(totalConflicts)")
                                 .font(.title)
                                 .fontWeight(.semibold)
@@ -248,7 +261,7 @@ struct CalendarView: View {
                     .buttonStyle(.plain)
                     .background(
                         RoundedRectangle(cornerRadius: 20)
-                            .stroke(Color(hex: "#b0b0c9"), lineWidth: 1)
+                            .stroke(purchaseManager.isPremium ? Color(hex: "#b0b0c9") : Color(hex: "#A640BC"), lineWidth: purchaseManager.isPremium ? 1 : 2)
                     )
 
                     Spacer()
@@ -448,6 +461,10 @@ struct CalendarView: View {
             .navigationDestination(isPresented: $showStatistics) {
                 StatisticsView()
                     .environmentObject(conflictManager)
+            }
+            .sheet(isPresented: $showPaywall) {
+                PaywallView(feature: .statistics)
+                    .environmentObject(purchaseManager)
             }
             .navigationBarTitleDisplayMode(.inline)
             .overlay(alignment: .top) {

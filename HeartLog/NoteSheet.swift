@@ -67,12 +67,14 @@ struct TextEditorRepresentable: UIViewRepresentable {
 }
 
 struct NoteSheet: View {
+    @EnvironmentObject private var purchaseManager: PurchaseManager
     @Binding var userText: String
     @Binding var isPresented: Bool
     @Binding var selectedEmotions: Set<String>
     let onSave: (String) -> Void
     @State private var draftText: String = ""
     @State private var draftEmotions: Set<String> = []
+    @State private var showPaywall: Bool = false
     @FocusState private var isTextEditorFocused: Bool
     
     var body: some View {
@@ -106,26 +108,58 @@ struct NoteSheet: View {
 
                 // Emotion Tags
                 VStack(alignment: .leading, spacing: 12) {
-                    Text("How are you feeling?")
-                        .font(.system(size: 17, weight: .medium))
-                        .foregroundColor(.primary.opacity(0.7))
-                        .padding(.horizontal, 15)
+                    HStack(spacing: 4) {
+                        Text("How are you feeling?")
+                            .font(.system(size: 17, weight: .medium))
+                            .foregroundColor(.primary.opacity(0.7))
+                        if !purchaseManager.isPremium {
+                            Image(systemName: "lock.fill")
+                                .font(.caption)
+                                .foregroundColor(Color(hex: "#A640BC"))
+                        }
+                    }
+                    .padding(.horizontal, 15)
 
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 12) {
-                            ForEach(["Anger", "Sadness", "Misunderstanding", "Disappointment", "Avoidance"], id: \.self) { emotion in
-                                EmotionChip(
-                                    emotion: emotion,
-                                    isSelected: draftEmotions.contains(emotion),
-                                    onTap: {
-                                        if draftEmotions.contains(emotion) {
-                                            draftEmotions.remove(emotion)
-                                        } else {
-                                            draftEmotions.insert(emotion)
+                    if purchaseManager.isPremium {
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(spacing: 12) {
+                                ForEach(["Anger", "Sadness", "Misunderstanding", "Disappointment", "Avoidance"], id: \.self) { emotion in
+                                    EmotionChip(
+                                        emotion: emotion,
+                                        isSelected: draftEmotions.contains(emotion),
+                                        onTap: {
+                                            if draftEmotions.contains(emotion) {
+                                                draftEmotions.remove(emotion)
+                                            } else {
+                                                draftEmotions.insert(emotion)
+                                            }
                                         }
-                                    }
-                                )
+                                    )
+                                }
                             }
+                            .padding(.horizontal, 15)
+                        }
+                    } else {
+                        Button(action: {
+                            showPaywall = true
+                        }) {
+                            HStack {
+                                Image(systemName: "crown.fill")
+                                    .font(.system(size: 14))
+                                Text("Unlock Emotion Tags")
+                                    .font(.system(size: 17, weight: .medium))
+                            }
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 12)
+                            .background(
+                                LinearGradient(
+                                    colors: [Color(hex: "#A640BC"), Color(hex: "#D896FF")],
+                                    startPoint: .leading,
+                                    endPoint: .trailing
+                                )
+                            )
+                            .cornerRadius(12)
                         }
                         .padding(.horizontal, 15)
                     }
@@ -165,6 +199,10 @@ struct NoteSheet: View {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
                     isTextEditorFocused = true // Trigger focus to show keyboard and cursor
                 }
+            }
+            .sheet(isPresented: $showPaywall) {
+                PaywallView(feature: .emotionTags)
+                    .environmentObject(purchaseManager)
             }
         }
     }

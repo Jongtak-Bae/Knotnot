@@ -12,8 +12,9 @@ import SwiftUI
 struct HeartLogApp: App {
     let persistenceController = PersistenceController.shared
     let conflictManager: ConflictManager
+    @StateObject private var purchaseManager = PurchaseManager.shared
     @State private var showOnboarding: Bool = !UserDefaults.standard.bool(forKey: "hasSeenOnboarding")
-    
+
     init() {
         let context = persistenceController.container.viewContext
         conflictManager = ConflictManager(context: context)
@@ -30,6 +31,10 @@ struct HeartLogApp: App {
                     ContentView()
                         .environment(\.managedObjectContext, persistenceController.container.viewContext)
                         .environmentObject(conflictManager)
+                        .environmentObject(purchaseManager)
+                        .task {
+                            await purchaseManager.loadProducts()
+                        }
                 }
             }
         }
