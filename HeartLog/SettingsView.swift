@@ -4,15 +4,59 @@ import StoreKit
 
 struct SettingsView: View {
     // MARK: - Properties
+    @EnvironmentObject private var purchaseManager: PurchaseManager
     @Environment(\.openURL) var openURL
     @Environment(\.dismiss) var dismiss
     @State private var versionNumber: String = ""
+    @State private var showPaywall: Bool = false
+    @State private var showRestoreAlert: Bool = false
+    @State private var restoreMessage: String = ""
     
     // MARK: - Body
     var body: some View {
         NavigationStack{
                 List {
-              
+                    // MARK: - Premium Section
+                    Section {
+                        if purchaseManager.isPremium {
+                            HStack {
+                                Image(systemName: "checkmark.seal.fill")
+                                    .foregroundColor(Color(hex: "#A640BC"))
+                                Text("Premium")
+                                    .foregroundColor(.primary)
+                                Spacer()
+                                Text("Active")
+                                    .foregroundColor(.secondary)
+                            }
+                        } else {
+                            Button(action: {
+                                showPaywall = true
+                            }) {
+                                HStack {
+                                    Image(systemName: "crown.fill")
+                                        .foregroundColor(Color(hex: "#A640BC"))
+                                    Text("Upgrade to Premium")
+                                        .foregroundColor(.primary)
+                                }
+                            }
+
+                            Button(action: {
+                                Task {
+                                    await restorePurchases()
+                                }
+                            }) {
+                                HStack {
+                                    Image(systemName: "arrow.clockwise")
+                                        .foregroundColor(Color(hex: "#A640BC"))
+                                    Text("Restore Purchases")
+                                        .foregroundColor(.primary)
+                                }
+                            }
+                        }
+                    } header: {
+                        Text("Premium Features")
+                    }
+
                     //rate us
                     Section{
                         Link(destination: writeReview(), label: {
@@ -104,6 +148,15 @@ struct SettingsView: View {
         .onAppear(){
             getAppVersion()
         }
+        .sheet(isPresented: $showPaywall) {
+            PaywallView(feature: .general)
+                .environmentObject(purchaseManager)
+        }
+        .alert("Restore Purchases", isPresented: $showRestoreAlert) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text(restoreMessage)
+        }
     }
     
     
@@ -122,7 +175,23 @@ struct SettingsView: View {
         }
         return writeReviewURL
     }
-    
+
+    private func restorePurchases() async {
+        do {
+            try await purchaseManager.restorePurchases()
+
+            if purchaseManager.isPremium {
+                restoreMessage = String(localized: "Purchases successfully restored!")
+            } else {
+                restoreMessage = String(localized: "No previous purchases found.")
+            }
+            showRestoreAlert = true
+        } catch {
+            restoreMessage = String(localized: "Restore failed. Please try again.")
+            showRestoreAlert = true
+        }
+    }
+
 }
 
 // MARK: - Row

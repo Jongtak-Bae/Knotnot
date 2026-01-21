@@ -2,6 +2,7 @@ import SwiftUI
 
 struct ConflictEditorView: View {
     @EnvironmentObject private var conflictManager: ConflictManager
+    @EnvironmentObject private var purchaseManager: PurchaseManager
     @FetchRequest(
         sortDescriptors: [NSSortDescriptor(keyPath: \Conflict.date, ascending: true)],
         animation: .default)
@@ -18,6 +19,10 @@ struct ConflictEditorView: View {
     @State private var userText: String = ""
     @State private var isSheetPresented = false
     @State private var selectedEmotions: Set<String> = []
+
+    // Confirmation dialog for deletion
+    @State private var showDeleteConfirmation = false
+    @State private var dateToDelete: Date? = nil
 
     init(dates: [Date], initialDate: Date) {
         self.dates = dates
@@ -126,8 +131,8 @@ struct ConflictEditorView: View {
             if !userText.isEmpty || !selectedEmotions.isEmpty {
                 ZStack {
                     VStack(alignment: .leading, spacing: 12) {
-                        // Emotion Tags
-                        if !selectedEmotions.isEmpty {
+                        // Emotion Tags (only show for premium users)
+                        if purchaseManager.isPremium && !selectedEmotions.isEmpty {
                             ScrollView(.horizontal, showsIndicators: false) {
                                 HStack(spacing: 8) {
                                     ForEach(Array(selectedEmotions).sorted(), id: \.self) { emotion in
@@ -160,7 +165,7 @@ struct ConflictEditorView: View {
                                 .truncationMode(.tail)
                                 .frame(maxWidth: .infinity, alignment: .topLeading)
                                 .padding(.horizontal, 24)
-                                .padding(.top, selectedEmotions.isEmpty ? 25 : 8)
+                                .padding(.top, (purchaseManager.isPremium && !selectedEmotions.isEmpty) ? 8 : 25)
                                 .padding(.bottom, 25)
                         } else {
                             Spacer()
@@ -212,6 +217,29 @@ struct ConflictEditorView: View {
                     save(notes: notes)
                 }
             )
+        }
+        .confirmationDialog(
+            "Delete this conflict?",
+            isPresented: $showDeleteConfirmation,
+            titleVisibility: .visible
+        ) {
+            Button("Delete", role: .destructive) {
+                guard let dateToDelete = dateToDelete else { return }
+                Task {
+                    do {
+                        try conflictManager.deleteConflict(for: dateToDelete)
+                        refreshUIState(for: dateToDelete)
+                        UIImpactFeedbackGenerator(style: .rigid).impactOccurred(intensity: 0.7)
+                    } catch {
+                        print("Error deleting conflict: \(error)")
+                    }
+                }
+            }
+            Button("Cancel", role: .cancel) {
+                dateToDelete = nil
+            }
+        } message: {
+            Text("This conflict has notes or details that will be lost.")
         }
     }
     
@@ -297,7 +325,21 @@ struct ConflictEditorView: View {
                     // Wait briefly for scroll to complete and centeredIndex to update
                     try await Task.sleep(nanoseconds: 300_000_000) // 0.3s delay
                 }
-                //            let centerDate = pastFiveDates[centeredIndex]
+
+                // Check if we're deleting and need confirmation
+                let existingConflict = try conflictManager.fetchConflict(for: date)
+                if existingConflict != nil {
+                    // Deleting - check if confirmation is needed
+                    if try conflictManager.shouldConfirmDeletion(for: date) {
+                        // Show confirmation dialog
+                        dateToDelete = date
+                        showDeleteConfirmation = true
+                        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                        return
+                    }
+                }
+
+                // Proceed with toggle (create or quick-delete)
                 try conflictManager.toggleConflict(
                     date: date,
                     person: selectedPerson,
