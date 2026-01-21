@@ -8,11 +8,13 @@
 
 /* Begin PBXBuildFile section */
 		E781FAE32F20595900388640 /* StoreKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E781FAE22F20595900388640 /* StoreKit.framework */; };
+		E781FB592F20745E00388640 /* Knotnot Icon.icon in Resources */ = {isa = PBXBuildFile; fileRef = E781FB582F20745E00388640 /* Knotnot Icon.icon */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		B1CC8BE72E7AF63400A58890 /* HeartLog.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = HeartLog.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		E781FAE22F20595900388640 /* StoreKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = StoreKit.framework; path = System/Library/Frameworks/StoreKit.framework; sourceTree = SDKROOT; };
+		E781FB582F20745E00388640 /* Knotnot Icon.icon */ = {isa = PBXFileReference; lastKnownFileType = folder.iconcomposer.icon; path = "Knotnot Icon.icon"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -68,6 +70,7 @@
 		E781FAE12F20595900388640 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				E781FB582F20745E00388640 /* Knotnot Icon.icon */,
 				E781FAE22F20595900388640 /* StoreKit.framework */,
 			);
 			name = Frameworks;
@@ -138,6 +141,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				E781FB592F20745E00388640 /* Knotnot Icon.icon in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -284,7 +288,7 @@
 		B1CC8BFB2E7AF63600A58890 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_APPICON_NAME = "Knotnot Icon";
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = HeartLog/HeartLog.entitlements;
 				CODE_SIGN_STYLE = Automatic;
@@ -318,7 +322,7 @@
 		B1CC8BFC2E7AF63600A58890 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_APPICON_NAME = "Knotnot Icon";
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = HeartLog/HeartLog.entitlements;
 				CODE_SIGN_STYLE = Automatic;

@@ -6,92 +6,139 @@ struct OnboardingView: View {
     let onComplete: () -> Void
     
     var body: some View {
-        VStack {
-            TabView(selection: $currentPage) {
-                VStack{
-                    Spacer()
-                    Text("Awareness is the first step to harmony.")
-                        .font(.largeTitle)
-                        .fontWeight(.bold)
-                        .multilineTextAlignment(.center)
-                        .padding()
-                    Spacer()
-                    Image("Knot Heart")
-                        .resizable()
-                                        .scaledToFill() // Use scaledToFill to stretch across the width
-                                        .frame(maxWidth: .infinity) // Expand to full width
-                                        .frame(height: 220) // Set a fixed height to maintain aspect ratio
-                                        //.clipped() // Clip any overflow to prevent stretching beyond bounds
-                    Spacer()
-                    
-                    Button(action: {currentPage = 1} ) {
-                        Text("Next")
-                            .font(.headline)
-                            .foregroundColor(.purple)
-                            .padding()
-                            .frame(maxWidth: 200)
-                            .background(RoundedRectangle(cornerRadius: 60).stroke(.gray.opacity(0.5)))
+        ZStack {
+            // Background color
+            Color(hex: "fff8ee")
+                .ignoresSafeArea()
+
+            // Top-left gradient glow
+            Circle()
+                .fill(
+                    RadialGradient(
+                        colors: [Color.purple.opacity(0.15), Color.clear],
+                        center: .center,
+                        startRadius: 0,
+                        endRadius: 150
+                    )
+                )
+                .frame(width: 300, height: 300)
+                .offset(x: -150, y: -250)
+
+            VStack {
+                TabView(selection: $currentPage) {
+                    VStack(alignment: .leading, spacing: 0) {
+                        // Title text
+                        Text("Awareness is the first step to harmony.")
+                            .font(.system(size: 48, weight: .light))
+                            .foregroundColor(.black)
+                            .lineSpacing(8)
+                            .padding(.horizontal, 32)
+                            .padding(.top, 160)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+
+                        Spacer()
+
+                        // Animated knot heart
+                        AnimatedKnotHeart(
+                            startAnimation: currentPage == 0,
+                            strokeColor: Color(hex: "DC12E8"),
+                            strokeWidth: 20,
+                            animationDuration: 2.5
+                        )
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 220)
+                        .padding(.bottom, 60)
+
+                        Spacer()
+
+                        // Next button
+                        HStack {
+                            Spacer()
+                            Button(action: { currentPage = 1 }) {
+                                Text("Next →")
+                                    .font(.system(size: 24, weight: .light))
+                                    .foregroundColor(.white)
+                                    .padding(.horizontal, 34)
+                                    .padding(.vertical, 16)
+                                    .background(Color(hex: "1b1b1b"))
+                                    .clipShape(Capsule())
+                            }
+                            .padding(.trailing, 40)
+                            .padding(.bottom, 80)
+                        }
                     }
-                    .padding(.horizontal, 40)
-                    .padding(.bottom, 40)
-                }
-                .frame(maxWidth: .infinity)
-                .tag(0)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .tag(0)
           
-                VStack{
-                    Spacer()
-                    Text("Tap on the circle to log a conflict")
-                        .font(.title)
-                        .fontWeight(.semibold)
-                        .multilineTextAlignment(.center)
-                  
-                    Image("Center Circle")
-                        
-                    Spacer()
-                    
-                    Button(action: {currentPage = 2} ) {
-                        Text("Next")
-                            .font(.headline)
-                            .foregroundColor(.purple)
-                            .padding()
-                            .frame(maxWidth: 200)
-                            .background(RoundedRectangle(cornerRadius: 60).stroke(.gray.opacity(0.5)))
+                    VStack(alignment: .center, spacing: 0) {
+                        Spacer()
+
+                        Text("Tap on the circle to log a conflict")
+                            .font(.system(size: 32, weight: .semibold))
+                            .foregroundColor(.black)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal, 40)
+
+                        Image("Center Circle")
+                            .padding(.vertical, 40)
+
+                        Spacer()
+
+                        HStack {
+                            Spacer()
+                            Button(action: { currentPage = 2 }) {
+                                Text("Next →")
+                                    .font(.system(size: 24, weight: .light))
+                                    .foregroundColor(.white)
+                                    .padding(.horizontal, 34)
+                                    .padding(.vertical, 16)
+                                    .background(Color(hex: "1b1b1b"))
+                                    .clipShape(Capsule())
+                            }
+                            .padding(.trailing, 40)
+                            .padding(.bottom, 80)
+                        }
                     }
-                    .padding(.horizontal, 40)
-                    .padding(.bottom, 40)
-                }
-                .tag(1)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .tag(1)
              
-                VStack{
-                    Spacer()
-                    Text("Slide to adjust the intensity")
-                        .font(.title)
-                        .fontWeight(.semibold)
-                        .multilineTextAlignment(.center)
-                  
-                    Image("Slider")
-                
-             
-                    Spacer()
-                    Button(action: onComplete ) {
-                        Text("Get Started")
-                            .font(.headline)
-                            .foregroundColor(.purple)
-                            .padding()
-                            .frame(maxWidth: 200)
-                            .background(RoundedRectangle(cornerRadius: 60).stroke(.gray.opacity(0.5)))
+                    VStack(alignment: .center, spacing: 0) {
+                        Spacer()
+
+                        Text("Slide to adjust the intensity")
+                            .font(.system(size: 32, weight: .semibold))
+                            .foregroundColor(.black)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal, 40)
+
+                        Image("Slider")
+                            .padding(.vertical, 40)
+
+                        Spacer()
+
+                        HStack {
+                            Spacer()
+                            Button(action: onComplete) {
+                                Text("Get Started →")
+                                    .font(.system(size: 24, weight: .light))
+                                    .foregroundColor(.white)
+                                    .padding(.horizontal, 34)
+                                    .padding(.vertical, 16)
+                                    .background(Color(hex: "1b1b1b"))
+                                    .clipShape(Capsule())
+                            }
+                            .padding(.trailing, 40)
+                            .padding(.bottom, 80)
+                        }
                     }
-                    .padding(.horizontal, 40)
-                    .padding(.bottom, 40)
-                }
-                .tag(2)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .tag(2)
                
+                }
+                .tabViewStyle(.page)
+                .indexViewStyle(.page(backgroundDisplayMode: .always))
             }
-            .tabViewStyle(.page)
-            .indexViewStyle(.page(backgroundDisplayMode: .always))
         }
-        .ignoresSafeArea()
-        .background()
     }
 }
 
