@@ -1,8 +1,8 @@
 import CoreData
 
 class ConflictManager: ObservableObject {
-    private let context: NSManagedObjectContext
-    
+    internal let context: NSManagedObjectContext
+
     init(context: NSManagedObjectContext) {
         self.context = context
     }
@@ -52,7 +52,24 @@ class ConflictManager: ObservableObject {
         request.sortDescriptors = [NSSortDescriptor(keyPath: \Conflict.date, ascending: true)]
         return try context.fetch(request)
     }
-    
+
+    // MARK: - Conflict Data Check
+    func conflictHasMeaningfulData(_ conflict: Conflict) -> Bool {
+        // Check if conflict has non-default data worth protecting
+        let hasNotes = !(conflict.notes ?? "").isEmpty
+        let hasEmotions = !(conflict.emotions ?? "").isEmpty
+        let hasNonDefaultIntensity = conflict.intensity != "Moderate"
+
+        return hasNotes || hasEmotions || hasNonDefaultIntensity
+    }
+
+    func shouldConfirmDeletion(for date: Date) throws -> Bool {
+        guard let conflict = try fetchConflict(for: date) else {
+            return false
+        }
+        return conflictHasMeaningfulData(conflict)
+    }
+
     // MARK: - Delete
     func deleteConflict(for date: Date) throws {
         if let conflict = try fetchConflict(for: date) {

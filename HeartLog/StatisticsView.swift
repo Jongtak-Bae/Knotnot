@@ -72,6 +72,33 @@ struct StatisticsView: View {
         }
     }
 
+    // MARK: - Chart Data
+
+    private var monthlyData: [(month: Date, count: Int)] {
+        conflictManager.monthlyConflictCounts(last: 6)
+    }
+
+    private var intensityData: [(month: Date, minor: Int, moderate: Int, severe: Int)] {
+        conflictManager.monthlyIntensityDistribution(last: 6)
+    }
+
+    private var streakData: [StreakData] {
+        let allStreaks = conflictManager.calculateStreaks(from: Array(conflicts))
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: Date())
+
+        return allStreaks.map { streak in
+            // Check if this is the current streak (ends today or in the future)
+            let isCurrent = streak.end >= today
+            return StreakData(
+                start: streak.start,
+                end: streak.end,
+                days: streak.days,
+                isCurrent: isCurrent
+            )
+        }
+    }
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
@@ -89,6 +116,28 @@ struct StatisticsView: View {
                 }
                 .padding(.horizontal, 20)
                 .padding(.top, 20)
+
+                // Trend Charts
+                if #available(iOS 16.0, *) {
+                    VStack(spacing: 16) {
+                        ConflictFrequencyChart(data: monthlyData)
+
+                        IntensityDistributionChart(data: intensityData)
+
+                        StreakVisualizationChart(
+                            streaks: streakData,
+                            conflicts: Array(conflicts)
+                        )
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.top, 32)
+                } else {
+                    Text(NSLocalizedString("Trends require iOS 16 or later", comment: "iOS version requirement message"))
+                        .font(.system(size: 15))
+                        .foregroundColor(.secondary)
+                        .padding(.horizontal, 20)
+                        .padding(.top, 32)
+                }
 
                 // Notes Section
                 VStack(alignment: .leading, spacing: 16) {
