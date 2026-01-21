@@ -137,8 +137,19 @@ struct OnboardingView: View {
                     .tag(2)
                
                 }
-                .tabViewStyle(.page)
-                .indexViewStyle(.page(backgroundDisplayMode: .always))
+                .tabViewStyle(.page(indexDisplayMode: .never))
+
+                // Custom page control - left bottom corner
+                HStack(spacing: 8) {
+                    ForEach(0..<3, id: \.self) { index in
+                        Circle()
+                            .fill(currentPage == index ? Color.black : Color.black.opacity(0.3))
+                            .frame(width: 8, height: 8)
+                    }
+                }
+                .padding(.leading, 40)
+                .padding(.bottom, 88)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
             }
         }
     }
