@@ -427,6 +427,29 @@ struct CalendarView: View {
                 }
                 .padding(.horizontal)
                 .padding(.bottom)
+                .gesture(
+                    DragGesture(minimumDistance: 50)
+                        .onEnded { value in
+                            let horizontalTranslation = value.translation.width
+
+                            // Swipe right (positive) = previous month
+                            if horizontalTranslation > 50 {
+                                withAnimation {
+                                    if let previousMonth = calendar.date(byAdding: .month, value: -1, to: currentMonth) {
+                                        currentMonth = previousMonth
+                                    }
+                                }
+                            }
+                            // Swipe left (negative) = next month
+                            else if horizontalTranslation < -50 {
+                                withAnimation {
+                                    if let nextMonth = calendar.date(byAdding: .month, value: 1, to: currentMonth) {
+                                        currentMonth = nextMonth
+                                    }
+                                }
+                            }
+                        }
+                )
                 .sheet(item: $dateForNewConflict) { identifiableDate in
                     NavigationStack {
                         ConflictEditorView(
