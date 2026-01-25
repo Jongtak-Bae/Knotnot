@@ -3,6 +3,7 @@ import SwiftUI
 struct ConflictEditorView: View {
     @EnvironmentObject private var conflictManager: ConflictManager
     @EnvironmentObject private var purchaseManager: PurchaseManager
+    @EnvironmentObject private var noteAccessManager: NoteAccessManager
     @FetchRequest(
         sortDescriptors: [NSSortDescriptor(keyPath: \Conflict.date, ascending: true)],
         animation: .default)

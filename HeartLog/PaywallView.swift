@@ -13,6 +13,7 @@ enum PaywallFeature {
     case statistics
     case emotionTags
     case iCloudSync
+    case unlimitedNotes
     case general
 }
 
@@ -73,6 +74,13 @@ struct PaywallView: View {
                             title: String(localized: "iCloud Sync"),
                             description: String(localized: "Seamlessly sync your data across all your devices"),
                             isHighlighted: feature == .iCloudSync
+                        )
+
+                        FeatureRow(
+                            icon: "text.alignleft",
+                            title: String(localized: "Unlimited Notes"),
+                            description: String(localized: "Write notes of any length without character limits"),
+                            isHighlighted: feature == .unlimitedNotes
                         )
                     }
                     .padding(.horizontal)

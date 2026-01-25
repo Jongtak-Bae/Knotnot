@@ -5,6 +5,7 @@ struct TextEditorRepresentable: UIViewRepresentable {
     @Binding var text: String
     @FocusState var isFocused: Bool
     var placeholder: String // Placeholder parameter
+    var characterLimit: Int? = nil
     
     func makeUIView(context: Context) -> UITextView {
         let textView = UITextView()
@@ -37,14 +38,16 @@ struct TextEditorRepresentable: UIViewRepresentable {
     }
     
     func makeCoordinator() -> Coordinator {
-        Coordinator(self)
+        Coordinator(self, characterLimit: characterLimit)
     }
-    
+
     class Coordinator: NSObject, UITextViewDelegate {
         var parent: TextEditorRepresentable
-        
-        init(_ parent: TextEditorRepresentable) {
+        var characterLimit: Int?
+
+        init(_ parent: TextEditorRepresentable, characterLimit: Int?) {
             self.parent = parent
+            self.characterLimit = characterLimit
         }
         
         func textViewDidChange(_ textView: UITextView) {
@@ -63,11 +66,28 @@ struct TextEditorRepresentable: UIViewRepresentable {
             // Update focus state when editing ends
             parent.isFocused = false
         }
+
+        func textView(_ textView: UITextView, shouldChangeTextIn range: NSRange, replacementText text: String) -> Bool {
+            guard let limit = characterLimit else { return true }
+
+            let currentText = textView.text ?? ""
+            guard let stringRange = Range(range, in: currentText) else { return true }
+            let updatedText = currentText.replacingCharacters(in: stringRange, with: text)
+
+            if updatedText.count > limit {
+                // Provide haptic feedback
+                UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                return false
+            }
+
+            return true
+        }
     }
 }
 
 struct NoteSheet: View {
     @EnvironmentObject private var purchaseManager: PurchaseManager
+    @EnvironmentObject private var noteAccessManager: NoteAccessManager
     @Binding var userText: String
     @Binding var isPresented: Bool
     @Binding var selectedEmotions: Set<String>
@@ -75,6 +95,8 @@ struct NoteSheet: View {
     @State private var draftText: String = ""
     @State private var draftEmotions: Set<String> = []
     @State private var showPaywall: Bool = false
+    @State private var showCharacterLimitError = false
+    @State private var showUpgradePrompt = false
     @FocusState private var isTextEditorFocused: Bool
     
     var body: some View {
@@ -83,7 +105,8 @@ struct NoteSheet: View {
                 ZStack(alignment: .topLeading) {
                     TextEditorRepresentable(
                         text: $draftText,
-                        placeholder: "Enter your note here..."
+                        placeholder: "Enter your note here...",
+                        characterLimit: noteAccessManager.characterLimit
                     )
                     .frame(minHeight: 200)
                     .padding(.horizontal, 10) // Match text container inset
@@ -105,6 +128,18 @@ struct NoteSheet: View {
 //                        .stroke(Color.gray.opacity(0.5))
 //                )
                 .padding(.horizontal)
+
+                // Character counter (only show if limit exists)
+                if let limit = noteAccessManager.characterLimit {
+                    HStack {
+                        Spacer()
+                        Text("\(draftText.count) / \(limit)")
+                            .font(.caption)
+                            .foregroundColor(colorForCharacterCount())
+                            .padding(.trailing)
+                    }
+                    .padding(.top, 4)
+                }
 
                 // Emotion Tags
                 VStack(alignment: .leading, spacing: 12) {
@@ -173,9 +208,13 @@ struct NoteSheet: View {
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button(action: {
-                        selectedEmotions = draftEmotions
-                        onSave(draftText)
-                        isPresented = false
+                        if noteAccessManager.canSaveNote(withLength: draftText.count) {
+                            selectedEmotions = draftEmotions
+                            onSave(draftText)
+                            isPresented = false
+                        } else {
+                            showCharacterLimitError = true
+                        }
                     }) {
                         Text("Save")
                             .padding(4)
@@ -184,6 +223,7 @@ struct NoteSheet: View {
                             .background(.purple)
                             .clipShape(Capsule())
                     }
+                    .disabled(!noteAccessManager.canSaveNote(withLength: draftText.count))
                 }
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") {
@@ -204,7 +244,29 @@ struct NoteSheet: View {
                 PaywallView(feature: .emotionTags)
                     .environmentObject(purchaseManager)
             }
+            .sheet(isPresented: $showUpgradePrompt) {
+                PaywallView(feature: .unlimitedNotes)
+                    .environmentObject(purchaseManager)
+            }
+            .alert("Character Limit Reached", isPresented: $showCharacterLimitError) {
+                Button("Upgrade to Premium") {
+                    showUpgradePrompt = true
+                }
+                Button("OK", role: .cancel) { }
+            } message: {
+                Text("Free users can write up to 200 characters. Upgrade to Premium for unlimited notes.")
+            }
         }
+    }
+
+    private func colorForCharacterCount() -> Color {
+        guard let limit = noteAccessManager.characterLimit else { return .secondary }
+        let count = draftText.count
+        let percentage = Double(count) / Double(limit)
+
+        if percentage >= 1.0 { return .red }
+        if percentage >= 0.9 { return .orange }
+        return .secondary
     }
 }
 
