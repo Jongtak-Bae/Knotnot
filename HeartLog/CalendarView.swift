@@ -622,30 +622,26 @@ struct ConflictDetailView: View {
 
                 Spacer()
 
-                VStack(spacing: 10) {
+                Menu {
                     Button(action: {
                         if let date = conflict.date {
                             showEditSheet = IdentifiableDate(date: date)
                         }
                     }) {
-                        Image(systemName: "pencil")
-                            .foregroundColor(.gray)
-                            .font(.body)
-                            .padding()
-                            .background(RoundedRectangle(cornerRadius: 50.0)
-                                .stroke(.gray.opacity(0.5)))
+                        Label("Edit", systemImage: "pencil")
                     }
 
-                    Button(action: {
+                    Button(role: .destructive, action: {
                         showDeleteConfirmation = true
                     }) {
-                        Image(systemName: "trash")
-                            .foregroundColor(.red)
-                            .font(.body)
-                            .padding()
-                            .background(RoundedRectangle(cornerRadius: 50.0)
-                                .stroke(.red.opacity(0.5)))
+                        Label("Delete", systemImage: "trash")
                     }
+                } label: {
+                    Image(systemName: "ellipsis")
+                        .foregroundColor(.gray)
+                        .font(.body)
+                        .padding(12)
+                        .background(Circle().fill(Color(uiColor: .systemGray6)))
                 }
             }
         }
