@@ -333,7 +333,7 @@ struct CalendarView: View {
                                 ZStack {
                                     let isFuture = isFutureDate(date)
                                     let isTodayDate = isToday(date)
-                                    let circleColor: Color = hasConflict(on: date) ? conflictIntensity(on: date).color : .clear
+                                    let circleColor: Color = hasConflict(on: date) ? conflictIntensity(on: date).color : Color.gray.opacity(0.2)
 
                                     Circle()
                                         .fill(circleColor)
