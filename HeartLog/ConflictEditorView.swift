@@ -312,12 +312,23 @@ struct ConflictEditorView: View {
         formatter.dateFormat = "yyyy"
         return formatter.string(from: date)
     }
-    
-    
-    
+
+    private func isFutureDate(_ date: Date) -> Bool {
+        let today = Calendar.current.startOfDay(for: Date())
+        let compareDate = Calendar.current.startOfDay(for: date)
+        return compareDate > today
+    }
+
+
+
     private func toggleConflictForDate(date: Date, index: Int) {
         Task {
             do {
+                // Prevent creating conflicts on future dates
+                if isFutureDate(date) {
+                    return
+                }
+
                 // If not centered, scroll to center it first
                 if index != centeredIndex {
                     withAnimation(.spring()) {

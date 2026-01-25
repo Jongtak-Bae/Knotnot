@@ -150,9 +150,15 @@ struct CalendarView: View {
 
     private func generateDatesAround(date: Date) -> [Date] {
         var dates: [Date] = []
+        let today = calendar.startOfDay(for: Date())
+
         for offset in -5...5 {
             if let newDate = calendar.date(byAdding: .day, value: offset, to: date) {
-                dates.append(newDate)
+                let compareDate = calendar.startOfDay(for: newDate)
+                // Only include dates that are today or in the past
+                if compareDate <= today {
+                    dates.append(newDate)
+                }
             }
         }
         return dates
@@ -513,9 +519,15 @@ struct ConflictDetailView: View {
 
     private func generateDatesAround(date: Date) -> [Date] {
         var dates: [Date] = []
+        let today = calendar.startOfDay(for: Date())
+
         for offset in -5...5 {
             if let newDate = calendar.date(byAdding: .day, value: offset, to: date) {
-                dates.append(newDate)
+                let compareDate = calendar.startOfDay(for: newDate)
+                // Only include dates that are today or in the past
+                if compareDate <= today {
+                    dates.append(newDate)
+                }
             }
         }
         return dates
