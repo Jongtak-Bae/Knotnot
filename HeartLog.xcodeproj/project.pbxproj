@@ -7,14 +7,17 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		E752BB732F2194410086500B /* Lottie in Frameworks */ = {isa = PBXBuildFile; productRef = E752BB722F2194410086500B /* Lottie */; };
 		E781FAE32F20595900388640 /* StoreKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E781FAE22F20595900388640 /* StoreKit.framework */; };
 		E781FB592F20745E00388640 /* Knotnot Icon.icon in Resources */ = {isa = PBXBuildFile; fileRef = E781FB582F20745E00388640 /* Knotnot Icon.icon */; };
+		E7C927A12F2691EA0029D841 /* Test.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7C927A02F2691E30029D841 /* Test.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		B1CC8BE72E7AF63400A58890 /* HeartLog.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = HeartLog.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		E781FAE22F20595900388640 /* StoreKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = StoreKit.framework; path = System/Library/Frameworks/StoreKit.framework; sourceTree = SDKROOT; };
 		E781FB582F20745E00388640 /* Knotnot Icon.icon */ = {isa = PBXFileReference; lastKnownFileType = folder.iconcomposer.icon; path = "Knotnot Icon.icon"; sourceTree = "<group>"; };
+		E7C927A02F2691E30029D841 /* Test.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Test.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -44,6 +47,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				E781FAE32F20595900388640 /* StoreKit.framework in Frameworks */,
+				E752BB732F2194410086500B /* Lottie in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -53,6 +57,7 @@
 		B1CC8BDE2E7AF63400A58890 = {
 			isa = PBXGroup;
 			children = (
+				E7C927A02F2691E30029D841 /* Test.swift */,
 				B1CC8BE92E7AF63400A58890 /* HeartLog */,
 				E781FAE12F20595900388640 /* Frameworks */,
 				B1CC8BE82E7AF63400A58890 /* Products */,
@@ -96,6 +101,7 @@
 			);
 			name = HeartLog;
 			packageProductDependencies = (
+				E752BB722F2194410086500B /* Lottie */,
 			);
 			productName = HeartLog;
 			productReference = B1CC8BE72E7AF63400A58890 /* HeartLog.app */;
@@ -126,6 +132,9 @@
 			);
 			mainGroup = B1CC8BDE2E7AF63400A58890;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				E752BB712F2194410086500B /* XCRemoteSwiftPackageReference "lottie-spm" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = B1CC8BE82E7AF63400A58890 /* Products */;
 			projectDirPath = "";
@@ -152,6 +161,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				E7C927A12F2691EA0029D841 /* Test.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -375,6 +385,25 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		E752BB712F2194410086500B /* XCRemoteSwiftPackageReference "lottie-spm" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/airbnb/lottie-spm.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 4.6.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		E752BB722F2194410086500B /* Lottie */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = E752BB712F2194410086500B /* XCRemoteSwiftPackageReference "lottie-spm" */;
+			productName = Lottie;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = B1CC8BDF2E7AF63400A58890 /* Project object */;
 }
