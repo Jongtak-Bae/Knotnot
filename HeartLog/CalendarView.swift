@@ -138,6 +138,16 @@ struct CalendarView: View {
         return false
     }
 
+    private func hasEmotions(on date: Date) -> Bool {
+        if let conflict = conflicts.first(where: { conflict in
+            guard let conflictDate = conflict.date else { return false }
+            return Calendar.current.isDate(conflictDate, inSameDayAs: date)
+        }) {
+            return !(conflict.emotions ?? "").isEmpty
+        }
+        return false
+    }
+
     private func isFutureDate(_ date: Date) -> Bool {
         let today = calendar.startOfDay(for: Date())
         let compareDate = calendar.startOfDay(for: date)
@@ -244,7 +254,7 @@ struct CalendarView: View {
                             showPaywall = true
                         }
                     }) {
-                        VStack(alignment: .leading) {
+                        HStack(alignment: .center) {
                             HStack(spacing: 4) {
                                 Text("Total Conflicts")
                                     .foregroundStyle(.gray)
@@ -253,13 +263,13 @@ struct CalendarView: View {
                                         .font(.caption)
                                         .foregroundColor(Color(hex: "#A640BC"))
                                 }
+                                Spacer()
                             }
                             Text("\(totalConflicts)")
                                 .font(.title)
                                 .fontWeight(.semibold)
-                                .padding(.top, 6)
                         }
-                        .frame(maxWidth: 100, alignment: .leading)
+//                        .frame(maxWidth: 100, alignment: .leading)
                         .padding(.vertical, 12)
                         .padding(.horizontal, 16)
                         .contentShape(Rectangle())
@@ -270,7 +280,7 @@ struct CalendarView: View {
                             .stroke(purchaseManager.isPremium ? Color(hex: "#b0b0c9") : Color(hex: "#A640BC"), lineWidth: purchaseManager.isPremium ? 1 : 2)
                     )
 
-                    Spacer()
+                    //Spacer()
 
                     Button(action: {
                         showSettings = true
@@ -278,7 +288,9 @@ struct CalendarView: View {
                         Image(systemName: "gearshape")
                             .font(.title2)
                             .foregroundColor(.primary)
+                            .padding(.leading)
                     }
+                    
                 }
                 .padding()
                 
@@ -363,12 +375,28 @@ struct CalendarView: View {
                                         .foregroundColor(hasConflict(on: date) ? .white : .primary)
                                         .opacity(isFuture ? 0.3 : 1.0)
                                 }
-                                if hasNote(on: date) {
-                                    Circle()
-                                        .fill(conflictIntensity(on: date).color)
-                                        .frame(width: 4, height: 4)
-                                        .offset(y: 8)
+
+                                // Indicators for notes and emotions
+                                let hasNoteIndicator = hasNote(on: date)
+                                let hasEmotionIndicator = hasEmotions(on: date)
+
+                                if hasNoteIndicator || hasEmotionIndicator {
+                                    HStack(spacing: 3) {
+                                        if hasNoteIndicator {
+                                            Circle()
+                                                .fill(.orange)
+                                                .frame(width: 4, height: 4)
+                                        }
+                                        if hasEmotionIndicator {
+                                            Circle()
+                                                .fill(Color.gray.opacity(0.6))
+                                                .frame(width: 4, height: 4)
+                                        }
+                                    }
+                                    .offset(y: 8)
                                 }
+                                
+                    
                             }
                             .simultaneousGesture(
                                 DragGesture(minimumDistance: 0)
@@ -398,6 +426,7 @@ struct CalendarView: View {
                     }
                 }
                 .padding(.horizontal)
+                .padding(.bottom)
                 .sheet(item: $dateForNewConflict) { identifiableDate in
                     NavigationStack {
                         ConflictEditorView(
@@ -721,5 +750,6 @@ struct SyncStatusBanner: View {
     CalendarView()
         .environment(\.managedObjectContext, PersistenceController.shared.container.viewContext)
         .environmentObject(ConflictManager(context: PersistenceController.shared.container.viewContext))
-        .preferredColorScheme(.dark)
+        .environmentObject(PurchaseManager.shared)
+        .preferredColorScheme(.light)
 }
