@@ -153,7 +153,27 @@ struct PaywallView: View {
                         .foregroundColor(.secondary)
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, 32)
-                        .padding(.bottom, 20)
+                        .padding(.bottom, 8)
+
+                    // Privacy Policy & Terms Links
+                    HStack(spacing: 16) {
+                        Link(destination: URL(string: "https://sites.google.com/view/knot-not-privacy-policy/home")!) {
+                            Text("Privacy Policy")
+                                .font(.caption)
+                                .foregroundColor(.gray)
+                        }
+
+                        Text("•")
+                            .font(.caption)
+                            .foregroundColor(.gray)
+
+                        Link(destination: URL(string: "https://www.apple.com/legal/internet-services/itunes/dev/stdeula/")!) {
+                            Text("Terms & Conditions")
+                                .font(.caption)
+                                .foregroundColor(.gray)
+                        }
+                    }
+                    .padding(.bottom, 20)
                 }
             }
             .navigationBarTitleDisplayMode(.inline)
