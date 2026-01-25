@@ -82,6 +82,12 @@ struct PaywallView: View {
                             description: String(localized: "Write notes of any length without character limits"),
                             isHighlighted: feature == .unlimitedNotes
                         )
+                        FeatureRow(
+                            icon: "heart.fill",
+                            title: String(localized: "Early Supporter & Future Updates"),
+                            description: String(localized: "Become an early supporter and get all future premium features"),
+                            isHighlighted: false
+                        )
                     }
                     .padding(.horizontal)
 
