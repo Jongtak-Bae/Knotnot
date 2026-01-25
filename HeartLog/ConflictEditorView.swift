@@ -137,19 +137,16 @@ struct ConflictEditorView: View {
                             ScrollView(.horizontal, showsIndicators: false) {
                                 HStack(spacing: 8) {
                                     ForEach(Array(selectedEmotions).sorted(), id: \.self) { emotion in
-                                        HStack(spacing: 6) {
-                                            Image(systemName: "checkmark")
-                                                .font(.system(size: 14, weight: .semibold))
-                                            Text(emotion)
-                                                .font(.system(size: 17))
-                                        }
-                                        .foregroundColor(.white)
-                                        .padding(.horizontal, 16)
-                                        .padding(.vertical, 8)
-                                        .background(
-                                            Capsule()
-                                                .fill(Color(hex: "#9c36b2"))
-                                        )
+                                        Text(emotion)
+                                            .font(.system(size: 13))
+                                            .tracking(-0.08)
+                                            .foregroundColor(Color(hex: "#9c36b2"))
+                                            .padding(.horizontal, 16)
+                                            .padding(.vertical, 8)
+                                            .background(
+                                                Capsule()
+                                                    .fill(Color(hex: "#9c36b2").opacity(0.2))
+                                            )
                                     }
                                 }
                             }

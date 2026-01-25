@@ -303,22 +303,20 @@ struct EmotionChip: View {
     var body: some View {
         Button(action: onTap) {
             HStack(spacing: 6) {
-                if isSelected {
-                    Image(systemName: "checkmark")
-                        .font(.system(size: 14, weight: .semibold))
-                } else {
+                if !isSelected {
                     Text("+")
                         .font(.system(size: 14, weight: .medium))
                 }
                 Text(emotion)
-                    .font(.system(size: 17))
+                    .font(.system(size: 13))
+                    .tracking(-0.08)
             }
-            .foregroundColor(isSelected ? .white : Color(hex: "#7f809e"))
+            .foregroundColor(isSelected ? Color(hex: "#9c36b2") : Color(hex: "#7f809e"))
             .padding(.horizontal, 16)
             .padding(.vertical, 8)
             .background(
                 Capsule()
-                    .fill(isSelected ? Color(hex: "#9c36b2") : Color.clear)
+                    .fill(isSelected ? Color(hex: "#9c36b2").opacity(0.2) : Color.clear)
                     .overlay(
                         Capsule()
                             .stroke(Color(hex: "#b0b0c9"), lineWidth: isSelected ? 0 : 1)
