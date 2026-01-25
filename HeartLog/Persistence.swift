@@ -26,15 +26,22 @@ struct PersistenceController {
             description?.shouldMigrateStoreAutomatically = true
             description?.shouldInferMappingModelAutomatically = true
 
-            // Configure CloudKit container
-            // Note: Replace with your actual CloudKit container identifier from Xcode capabilities
-            description?.cloudKitContainerOptions = NSPersistentCloudKitContainerOptions(
-                containerIdentifier: "iCloud.com.jeongpei.Knotnot"
-            )
+            // Check if user is premium to enable iCloud sync
+            let isPremium = UserDefaults.standard.bool(forKey: "isPremiumUser")
 
-            // Enable remote change notifications
-            description?.setOption(true as NSNumber,
-                                  forKey: NSPersistentStoreRemoteChangeNotificationPostOptionKey)
+            if isPremium {
+                // Configure CloudKit container for premium users only
+                description?.cloudKitContainerOptions = NSPersistentCloudKitContainerOptions(
+                    containerIdentifier: "iCloud.com.jeongpei.Knotnot"
+                )
+
+                // Enable remote change notifications
+                description?.setOption(true as NSNumber,
+                                      forKey: NSPersistentStoreRemoteChangeNotificationPostOptionKey)
+            } else {
+                // Disable CloudKit sync for free users
+                description?.cloudKitContainerOptions = nil
+            }
         }
 
         container.loadPersistentStores { storeDescription, error in
@@ -65,8 +72,19 @@ struct PersistenceController {
 
     // MARK: - iCloud Status Check
 
+    /// Check if iCloud sync is available (requires premium)
+    func isSyncAvailable() -> Bool {
+        return UserDefaults.standard.bool(forKey: "isPremiumUser")
+    }
+
     /// Check if iCloud is available for syncing
     func checkiCloudStatus(completion: @escaping (Bool, String?) -> Void) {
+        // First check if user is premium
+        guard isSyncAvailable() else {
+            completion(false, "iCloud sync is a premium feature. Upgrade to enable sync across devices.")
+            return
+        }
+
         CKContainer.default().accountStatus { status, error in
             DispatchQueue.main.async {
                 switch status {

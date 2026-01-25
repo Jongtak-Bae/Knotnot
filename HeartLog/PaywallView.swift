@@ -65,7 +65,7 @@ struct PaywallView: View {
                         FeatureRow(
                             icon: "face.smiling.fill",
                             title: String(localized: "Emotion Tags"),
-                            description: String(localized: "Track your emotional states with customizable tags"),
+                            description: String(localized: "Track your emotional states with tags"),
                             isHighlighted: feature == .emotionTags
                         )
 
