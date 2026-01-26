@@ -498,7 +498,7 @@ struct CalendarView: View {
                     )
                     .padding()
                     .background(
-                        RoundedRectangle(cornerRadius: 10)
+                        RoundedRectangle(cornerRadius: 20)
                             .stroke(.gray.opacity(0.2), lineWidth: 1)
                     )
                     .padding(.horizontal)

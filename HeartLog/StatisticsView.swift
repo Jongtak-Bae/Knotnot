@@ -211,10 +211,10 @@ struct StatCard: View {
 
             Spacer()
         }
-        .frame(width: 167, height: 128, alignment: .topLeading)
+        .frame(maxWidth: .infinity, alignment: .topLeading)
         .background(
             RoundedRectangle(cornerRadius: 30)
-                .stroke(Color(hex: "#b0b0c9"), lineWidth: 1)
+                .stroke(Color.primary.opacity(0.15), lineWidth: 1)
         )
     }
 }
@@ -257,19 +257,16 @@ struct NoteCard: View {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 8) {
                         ForEach(emotionsString.split(separator: ",").map(String.init), id: \.self) { emotion in
-                            HStack(spacing: 6) {
-                                Image(systemName: "checkmark")
-                                    .font(.system(size: 14, weight: .semibold))
-                                Text(emotion)
-                                    .font(.system(size: 17))
-                            }
-                            .foregroundColor(.white)
-                            .padding(.horizontal, 16)
-                            .padding(.vertical, 8)
-                            .background(
-                                Capsule()
-                                    .fill(Color(hex: "#9c36b2"))
-                            )
+                            Text(emotion)
+                                .font(.system(size: 13))
+                                .tracking(-0.08)
+                                .foregroundColor(Color(hex: "#9c36b2"))
+                                .padding(.horizontal, 16)
+                                .padding(.vertical, 8)
+                                .background(
+                                    Capsule()
+                                        .fill(Color(hex: "#9c36b2").opacity(0.2))
+                                )
                         }
                     }
                     .padding(.horizontal, 27)
@@ -297,7 +294,7 @@ struct NoteCard: View {
         .frame(maxWidth: .infinity)
         .background(
             RoundedRectangle(cornerRadius: 30)
-                .stroke(Color(hex: "#b0b0c9"), lineWidth: 1)
+                .stroke(Color.primary.opacity(0.15), lineWidth: 1)
         )
     }
 }

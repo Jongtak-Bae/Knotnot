@@ -176,18 +176,24 @@ struct ConflictEditorView: View {
                         Spacer()
                         HStack {
                             Spacer()
-                            Button(action: {
-                                isSheetPresented = true
-                            }) {
-                                Image(systemName: "pencil")
-                                    .font(.system(size: 17, weight: .semibold))
-                                    .foregroundColor(Color(hex: "#7f809e"))
-                                    .frame(width: 54, height: 54)
-                                    .background(
-                                        RoundedRectangle(cornerRadius: 30)
-                                            .fill(Color(uiColor: .systemBackground))
-                                            .stroke(Color(hex: "#b0b0c9"), lineWidth: 1)
-                                    )
+                            Menu {
+                                Button(action: {
+                                    isSheetPresented = true
+                                }) {
+                                    Label("Edit", systemImage: "pencil")
+                                }
+
+                                Button(role: .destructive, action: {
+                                    showDeleteConfirmation = true
+                                }) {
+                                    Label("Delete Note", systemImage: "trash")
+                                }
+                            } label: {
+                                Image(systemName: "ellipsis")
+                                    .foregroundColor(.gray)
+                                    .font(.body)
+                                    .padding(12)
+                                    .background(Circle().fill(Color(uiColor: .systemGray6)))
                             }
                             .padding(.trailing, 12)
                             .padding(.bottom, 12)
@@ -217,27 +223,20 @@ struct ConflictEditorView: View {
             )
         }
         .confirmationDialog(
-            "Delete this conflict?",
+            "Delete this note?",
             isPresented: $showDeleteConfirmation,
             titleVisibility: .visible
         ) {
             Button("Delete", role: .destructive) {
-                guard let dateToDelete = dateToDelete else { return }
-                Task {
-                    do {
-                        try conflictManager.deleteConflict(for: dateToDelete)
-                        refreshUIState(for: dateToDelete)
-                        UIImpactFeedbackGenerator(style: .rigid).impactOccurred(intensity: 0.7)
-                    } catch {
-                        print("Error deleting conflict: \(error)")
-                    }
-                }
+                // Clear notes and emotions, but keep the conflict
+                userText = ""
+                selectedEmotions = []
+                save(notes: "")
+                UIImpactFeedbackGenerator(style: .rigid).impactOccurred(intensity: 0.7)
             }
-            Button("Cancel", role: .cancel) {
-                dateToDelete = nil
-            }
+            Button("Cancel", role: .cancel) { }
         } message: {
-            Text("This conflict has notes or details that will be lost.")
+            Text("The note and emotions will be deleted, but the conflict will remain.")
         }
     }
     
