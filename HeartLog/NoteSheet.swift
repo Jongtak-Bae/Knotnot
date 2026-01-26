@@ -158,7 +158,7 @@ struct NoteSheet: View {
                     if purchaseManager.isPremium {
                         ScrollView(.horizontal, showsIndicators: false) {
                             HStack(spacing: 12) {
-                                ForEach(["Anger", "Sadness", "Misunderstanding", "Disappointment", "Avoidance"], id: \.self) { emotion in
+                                ForEach(["Anger", "Sadness", "Misunderstanding", "Disappointment", "Avoidance", "Resentment", "Neglect", "Unappreciated", "Controlled", "Blamed", "Distrust", "Hurt", "Exhausted"], id: \.self) { emotion in
                                     EmotionChip(
                                         emotion: emotion,
                                         isSelected: draftEmotions.contains(emotion),
@@ -307,7 +307,7 @@ struct EmotionChip: View {
                     Text("+")
                         .font(.system(size: 14, weight: .medium))
                 }
-                Text(emotion)
+                Text(LocalizedStringKey(emotion))
                     .font(.system(size: 13))
                     .tracking(-0.08)
             }
