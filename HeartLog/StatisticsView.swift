@@ -257,7 +257,7 @@ struct NoteCard: View {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 8) {
                         ForEach(emotionsString.split(separator: ",").map(String.init), id: \.self) { emotion in
-                            Text(emotion)
+                            Text(LocalizedStringKey(emotion))
                                 .font(.system(size: 13))
                                 .tracking(-0.08)
                                 .foregroundColor(Color(hex: "#9c36b2"))

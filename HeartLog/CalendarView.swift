@@ -293,9 +293,9 @@ struct CalendarView: View {
                     
                 }
                 .padding()
-                
+
                 Divider()
-                
+
                 // Month navigation
                 HStack {
                     Button(action: {
@@ -510,8 +510,11 @@ struct CalendarView: View {
                 selectedConflict = nil
             }
             .onAppear {
-                checkiCloudStatus()
-                observeSyncEvents()
+                // Only check iCloud status and observe sync events for premium users
+                if purchaseManager.isPremium {
+                    checkiCloudStatus()
+                    observeSyncEvents()
+                }
             }
             .navigationDestination(isPresented: $showSettings) {
                 SettingsView()
@@ -623,7 +626,7 @@ struct ConflictDetailView: View {
                             ScrollView(.horizontal, showsIndicators: false) {
                                 HStack(spacing: 8) {
                                     ForEach(emotionsString.split(separator: ",").map(String.init), id: \.self) { emotion in
-                                        Text(emotion)
+                                        Text(LocalizedStringKey(emotion))
                                             .font(.system(size: 13))
                                             .tracking(-0.08)
                                             .foregroundColor(Color(hex: "#9c36b2"))

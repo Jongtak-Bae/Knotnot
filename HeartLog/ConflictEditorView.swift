@@ -110,7 +110,7 @@ struct ConflictEditorView: View {
                 }
 
             // MARK: Notes Button
-            if userText.isEmpty {
+            if userText.isEmpty || selectedEmotions.isEmpty{
                 Button(action: {
                     isSheetPresented = true
                 }) {
@@ -137,7 +137,7 @@ struct ConflictEditorView: View {
                             ScrollView(.horizontal, showsIndicators: false) {
                                 HStack(spacing: 8) {
                                     ForEach(Array(selectedEmotions).sorted(), id: \.self) { emotion in
-                                        Text(emotion)
+                                        Text(LocalizedStringKey(emotion))
                                             .font(.system(size: 13))
                                             .tracking(-0.08)
                                             .foregroundColor(Color(hex: "#9c36b2"))
