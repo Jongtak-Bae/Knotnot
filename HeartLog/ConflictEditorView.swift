@@ -21,8 +21,9 @@ struct ConflictEditorView: View {
     @State private var isSheetPresented = false
     @State private var selectedEmotions: Set<String> = []
 
-    // Confirmation dialog for deletion
-    @State private var showDeleteConfirmation = false
+    // Confirmation dialogs
+    @State private var showDeleteNoteConfirmation = false  // For menu delete (notes only)
+    @State private var showDeleteConflictConfirmation = false  // For circle tap (entire conflict)
     @State private var dateToDelete: Date? = nil
 
     init(dates: [Date], initialDate: Date) {
@@ -184,7 +185,7 @@ struct ConflictEditorView: View {
                                 }
 
                                 Button(role: .destructive, action: {
-                                    showDeleteConfirmation = true
+                                    showDeleteNoteConfirmation = true
                                 }) {
                                     Label("Delete Note", systemImage: "trash")
                                 }
@@ -224,7 +225,7 @@ struct ConflictEditorView: View {
         }
         .confirmationDialog(
             "Delete this note?",
-            isPresented: $showDeleteConfirmation,
+            isPresented: $showDeleteNoteConfirmation,
             titleVisibility: .visible
         ) {
             Button("Delete", role: .destructive) {
@@ -237,6 +238,29 @@ struct ConflictEditorView: View {
             Button("Cancel", role: .cancel) { }
         } message: {
             Text("The note and emotions will be deleted, but the conflict will remain.")
+        }
+        .confirmationDialog(
+            "Delete this conflict?",
+            isPresented: $showDeleteConflictConfirmation,
+            titleVisibility: .visible
+        ) {
+            Button("Delete", role: .destructive) {
+                guard let dateToDelete = dateToDelete else { return }
+                Task {
+                    do {
+                        try conflictManager.deleteConflict(for: dateToDelete)
+                        refreshUIState(for: dateToDelete)
+                        UIImpactFeedbackGenerator(style: .rigid).impactOccurred(intensity: 0.7)
+                    } catch {
+                        print("Error deleting conflict: \(error)")
+                    }
+                }
+            }
+            Button("Cancel", role: .cancel) {
+                dateToDelete = nil
+            }
+        } message: {
+            Text("This action cannot be undone.")
         }
     }
     
@@ -337,14 +361,11 @@ struct ConflictEditorView: View {
                 // Check if we're deleting and need confirmation
                 let existingConflict = try conflictManager.fetchConflict(for: date)
                 if existingConflict != nil {
-                    // Deleting - check if confirmation is needed
-                    if try conflictManager.shouldConfirmDeletion(for: date) {
-                        // Show confirmation dialog
-                        dateToDelete = date
-                        showDeleteConfirmation = true
-                        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-                        return
-                    }
+                    // Deleting - always show confirmation dialog for circle tap
+                    dateToDelete = date
+                    showDeleteConflictConfirmation = true
+                    UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                    return
                 }
 
                 // Proceed with toggle (create or quick-delete)
