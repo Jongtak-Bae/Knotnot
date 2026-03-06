@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git -C /Users/yiqunfang/Documents/Knotnot log --oneline --graph --all -20)",
+      "Bash(find /Users/yiqunfang/Documents/Knotnot/HeartLog -name \"*.xcdatamodel\" -exec find {} -name \"contents\" \\\\; | head -5)",
+      "Bash(git -C /Users/yiqunfang/Documents/Knotnot branch -a)"
+    ]
+  }
+}
