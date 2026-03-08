@@ -19,6 +19,94 @@ enum SyncStatus {
     case error(String)
 }
 
+// MARK: - Conflict Shape Views
+struct ConflictMinorShape: View {
+    let size: CGFloat
+    var body: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: size * 0.37)
+                .fill(Color("Yellow"))
+                .frame(width: size * 0.8, height: size * 0.8)
+                .rotationEffect(.degrees(45))
+            RoundedRectangle(cornerRadius: size * 0.37)
+                .fill(Color("Yellow").opacity(0.8))
+                .frame(width: size * 0.8, height: size * 0.8)
+                .rotationEffect(.degrees(0))
+        }
+        .frame(width: size, height: size)
+    }
+}
+
+struct ConflictModerateShape: View {
+    let size: CGFloat
+    var body: some View {
+        ZStack {
+            // Four overlapping circles to make a clover
+            let offset = size * 0.18
+            Circle()
+                .fill(Color("Orange"))
+                .frame(width: size * 0.55, height: size * 0.55)
+                .offset(x: -offset, y: -offset)
+            Circle()
+                .fill(Color("Orange"))
+                .frame(width: size * 0.55, height: size * 0.55)
+                .offset(x: offset, y: -offset)
+            Circle()
+                .fill(Color("Orange"))
+                .frame(width: size * 0.55, height: size * 0.55)
+                .offset(x: -offset, y: offset)
+            Circle()
+                .fill(Color("Orange"))
+                .frame(width: size * 0.55, height: size * 0.55)
+                .offset(x: offset, y: offset)
+        }
+        .frame(width: size, height: size)
+    }
+}
+
+struct ConflictSevereShape: View {
+    let size: CGFloat
+    var body: some View {
+        ZStack {
+            // Cross/plus shape with rounded rectangles
+            RoundedRectangle(cornerRadius: size * 0.37)
+                .fill(Color("Purple"))
+                .frame(width: size * 0.35, height: size * 0.85)
+            RoundedRectangle(cornerRadius: size * 0.37)
+                .fill(Color("Purple"))
+                .frame(width: size * 0.85, height: size * 0.35)
+            // Center diamond overlay for depth
+            RoundedRectangle(cornerRadius: size * 0.37)
+                .fill(Color("Purple").opacity(0.8))
+                .frame(width: size * 0.6, height: size * 0.6)
+                .rotationEffect(.degrees(45))
+        }
+        .frame(width: size, height: size)
+    }
+}
+
+@ViewBuilder
+func conflictShapeView(for intensity: ConflictIntensity, size: CGFloat = 34) -> some View {
+    switch intensity {
+    case .minor:
+        Image("conflict-minor")
+            .resizable()
+            .aspectRatio(contentMode: .fit)
+            .frame(width: size, height: size)
+    case .moderate:
+        Image("conflict-moderate")
+            .resizable()
+            .aspectRatio(contentMode: .fit)
+            .frame(width: size, height: size)
+    case .severe:
+        Image("conflict-major")
+            .resizable()
+            .aspectRatio(contentMode: .fit)
+            .frame(width: size, height: size)
+    }
+}
+
+// MARK: - Calendar View
 struct CalendarView: View {
     @EnvironmentObject private var conflictManager: ConflictManager
     @EnvironmentObject private var purchaseManager: PurchaseManager
@@ -34,6 +122,7 @@ struct CalendarView: View {
     @State private var showStatistics: Bool = false
     @State private var showPaywall: Bool = false
     @State private var dateForNewConflict: IdentifiableDate? = nil
+    @State private var lastNewConflictDate: Date? = nil
     @State private var tappedDate: Date? = nil
     @State private var syncStatus: SyncStatus = .syncing
     @State private var lastSyncTime: Date?
@@ -42,20 +131,18 @@ struct CalendarView: View {
 
     private var calendar: Calendar {
         var cal = Calendar.current
-        cal.firstWeekday = 1 // Start week on Sunday
+        cal.firstWeekday = 1
         return cal
     }
-    // Localized weekday names
-        private var weekdayNames: [String] {
-            let formatter = DateFormatter()
-            formatter.locale = Locale.current // Use device's current locale
-            // Use veryShortWeekdaySymbols to match "Sun", "Mon", etc.
-            let symbols = formatter.shortWeekdaySymbols ?? ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
-            // Rotate array to start with the first weekday
-            let firstWeek = calendar.firstWeekday - 1 // Convert to 0-indexed
-            return Array(symbols[firstWeek...] + symbols[..<firstWeek])
-        }
-    
+
+    private var weekdayNames: [String] {
+        let formatter = DateFormatter()
+        formatter.locale = Locale.current
+        let symbols = formatter.shortWeekdaySymbols ?? ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
+        let firstWeek = calendar.firstWeekday - 1
+        return Array(symbols[firstWeek...] + symbols[..<firstWeek])
+    }
+
     private var monthDays: [CalendarDayItem] {
         guard let firstDay = calendar.date(from: calendar.dateComponents([.year, .month], from: currentMonth)) else {
             return []
@@ -80,72 +167,45 @@ struct CalendarView: View {
         }
         return days
     }
-    
-    private var monthName: String {
+
+    private var yearString: String {
         let formatter = DateFormatter()
         formatter.locale = Locale.current
-        formatter.setLocalizedDateFormatFromTemplate("MMMMyyyy")
+        formatter.setLocalizedDateFormatFromTemplate("yyyy")
         return formatter.string(from: currentMonth)
     }
-    
-    private var detailDateFormatter: DateFormatter {
+
+    private var monthString: String {
         let formatter = DateFormatter()
-        formatter.dateStyle = .long
-        formatter.timeStyle = .none
-        return formatter
+        formatter.locale = Locale.current
+        formatter.setLocalizedDateFormatFromTemplate("MMMM")
+        return formatter.string(from: currentMonth)
     }
-    
+
     private var totalConflicts: Int {
         conflicts.filter { $0.date != nil }.count
     }
-    
+
     private func hasConflict(on date: Date) -> Bool {
         conflicts.contains { conflict in
-            guard let conflictDate = conflict.date else {
-                print("Warning: Conflict with id \(conflict.id?.uuidString ?? "unknown") has nil date")
-                return false
-            }
+            guard let conflictDate = conflict.date else { return false }
             return Calendar.current.isDate(conflictDate, inSameDayAs: date)
         }
     }
-    
+
+    private func hasNote(on date: Date) -> Bool {
+        conflicts.first { conflict in
+            guard let conflictDate = conflict.date else { return false }
+            return Calendar.current.isDate(conflictDate, inSameDayAs: date)
+        }.flatMap { $0.notes?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false } ?? false
+    }
+
     private func conflictIntensity(on date: Date) -> ConflictIntensity {
         conflicts.first { conflict in
-            guard let conflictDate = conflict.date else {
-                print("Warning: Conflict with id \(conflict.id?.uuidString ?? "unknown") has nil date")
-                return false
-            }
+            guard let conflictDate = conflict.date else { return false }
             return Calendar.current.isDate(conflictDate, inSameDayAs: date)
         }
         .flatMap { ConflictIntensity(string: $0.intensity) } ?? .moderate
-    }
-    
-    private func conflictEmoji(on date: Date) -> String {
-        switch conflictIntensity(on: date) {
-        case .minor: return "☹️"
-        case .moderate: return "😡"
-        case .severe: return "👿"
-        }
-    }
-    
-    private func hasNote(on date: Date) -> Bool {
-        if let conflict = conflicts.first(where: { conflict in
-            guard let conflictDate = conflict.date else { return false }
-            return Calendar.current.isDate(conflictDate, inSameDayAs: date)
-        }) {
-            return !(conflict.notes ?? "").isEmpty
-        }
-        return false
-    }
-
-    private func hasEmotions(on date: Date) -> Bool {
-        if let conflict = conflicts.first(where: { conflict in
-            guard let conflictDate = conflict.date else { return false }
-            return Calendar.current.isDate(conflictDate, inSameDayAs: date)
-        }) {
-            return !(conflict.emotions ?? "").isEmpty
-        }
-        return false
     }
 
     private func isFutureDate(_ date: Date) -> Bool {
@@ -158,6 +218,46 @@ struct CalendarView: View {
         calendar.isDateInToday(date)
     }
 
+    /// Whether today is in the currently displayed month
+    private var isTodayOnScreen: Bool {
+        calendar.isDate(Date(), equalTo: currentMonth, toGranularity: .month)
+    }
+
+    /// The effective date to consider as "active" (explicit selection or today if on screen)
+    private var effectiveDate: Date? {
+        if selectedDate != nil || selectedConflict != nil {
+            return nil // explicit selection takes priority
+        }
+        return isTodayOnScreen ? calendar.startOfDay(for: Date()) : nil
+    }
+
+    /// The conflict to show in the detail card (explicit or today's)
+    private var activeConflict: Conflict? {
+        if let conflict = selectedConflict { return conflict }
+        if let today = effectiveDate {
+            return conflicts.first { conflict in
+                guard let d = conflict.date else { return false }
+                return calendar.isDate(d, inSameDayAs: today)
+            }
+        }
+        return nil
+    }
+
+    /// Whether to show "A peaceful day" text
+    private var showPeacefulDay: Bool {
+        if selectedDate != nil { return true }
+        if let today = effectiveDate, !hasConflict(on: today) { return true }
+        return false
+    }
+
+    /// The target date for the + button, or nil to hide it
+    private var plusButtonDate: Date? {
+        if activeConflict != nil { return nil }
+        if let date = selectedDate { return date }
+        if let today = effectiveDate, !hasConflict(on: today) { return today }
+        return nil
+    }
+
     private func generateDatesAround(date: Date) -> [Date] {
         var dates: [Date] = []
         let today = calendar.startOfDay(for: Date())
@@ -165,7 +265,6 @@ struct CalendarView: View {
         for offset in -5...5 {
             if let newDate = calendar.date(byAdding: .day, value: offset, to: date) {
                 let compareDate = calendar.startOfDay(for: newDate)
-                // Only include dates that are today or in the past
                 if compareDate <= today {
                     dates.append(newDate)
                 }
@@ -181,22 +280,18 @@ struct CalendarView: View {
             } else {
                 syncStatus = .notAvailable(message ?? "iCloud not available")
             }
-            // Don't show banner on initial status check, only on actual import events
         }
     }
 
     private func scheduleBannerDismissal() {
-        // Cancel existing task
         bannerDismissTask?.cancel()
 
-        // Show banner
         withAnimation(.easeInOut(duration: 0.3)) {
             showSyncBanner = true
         }
 
-        // Schedule auto-dismiss after 5 seconds
         bannerDismissTask = Task {
-            try? await Task.sleep(nanoseconds: 5_000_000_000) // 5 seconds
+            try? await Task.sleep(nanoseconds: 5_000_000_000)
 
             if !Task.isCancelled {
                 withAnimation(.easeInOut(duration: 0.3)) {
@@ -216,13 +311,11 @@ struct CalendarView: View {
                 as? NSPersistentCloudKitContainer.Event {
 
                 if event.type == .import || event.type == .export {
-                    // Only show banner for import events (receiving from iCloud)
                     if event.type == .import {
                         syncStatus = .syncing
                         scheduleBannerDismissal()
                     }
 
-                    // Update to available after sync completes
                     DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
                         if event.error == nil {
                             syncStatus = .available
@@ -231,7 +324,6 @@ struct CalendarView: View {
                             syncStatus = .error(event.error?.localizedDescription ?? "Sync error")
                         }
 
-                        // Only show banner for import events
                         if event.type == .import {
                             scheduleBannerDismissal()
                         }
@@ -244,273 +336,330 @@ struct CalendarView: View {
     // MARK: - Body
     var body: some View {
         NavigationStack {
-            VStack(alignment: .leading, spacing: 0) {
-                // Total conflicts display with settings gear
-                HStack {
-                    Button(action: {
-                        if purchaseManager.isPremium {
-                            showStatistics = true
-                        } else {
-                            showPaywall = true
-                        }
-                    }) {
-                        HStack(alignment: .center) {
-                            HStack(spacing: 4) {
-                                Text("Total Conflicts")
-                                    .foregroundStyle(.gray)
-                                if !purchaseManager.isPremium {
-                                    Image(systemName: "lock.fill")
-                                        .font(.caption)
-                                        .foregroundColor(Color(hex: "#A640BC"))
-                                }
-                                Spacer()
+            ZStack(alignment: .bottom) {
+                Color("BackgroundPrimary")
+                    .ignoresSafeArea()
+
+                VStack(alignment: .leading, spacing: 0) {
+                    // Top bar: Statistics + Settings
+                    HStack {
+                        Button(action: {
+                            if purchaseManager.isPremium {
+                                showStatistics = true
+                            } else {
+                                showPaywall = true
                             }
-                            Text("\(totalConflicts)")
-                                .font(.title)
-                                .fontWeight(.semibold)
+                        }) {
+                            HStack(spacing: 9) {
+                                Image(systemName: "chart.bar.fill")
+                                    .font(.system(size: 20))
+                                    .foregroundColor(Color("LabelPrimary"))
+                                Text("Total Conflict")
+                                    .font(.system(size: 17, weight: .regular))
+                                    .tracking(-0.43)
+                                    .foregroundColor(Color("LabelPrimary"))
+                                Text("\(totalConflicts)")
+                                    .font(.system(size: 17, weight: .regular))
+                                    .tracking(-0.43)
+                                    .foregroundColor(Color("LabelPrimary"))
+                            }
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 8)
+                            .frame(height: 48)
+                            .background(Color("BackgroundSecondary"))
+                            .clipShape(RoundedRectangle(cornerRadius: 20))
                         }
-//                        .frame(maxWidth: 100, alignment: .leading)
-                        .padding(.vertical, 12)
-                        .padding(.horizontal, 16)
-                        .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
-                    .background(
-                        RoundedRectangle(cornerRadius: 20)
-                            .stroke(purchaseManager.isPremium ? Color(hex: "#b0b0c9") : Color(hex: "#A640BC"), lineWidth: purchaseManager.isPremium ? 1 : 2)
-                    )
+                        .buttonStyle(.plain)
 
-                    //Spacer()
+                        Spacer()
 
-                    Button(action: {
-                        showSettings = true
-                    }) {
-                        Image(systemName: "gearshape")
-                            .font(.title2)
-                            .foregroundColor(.primary)
-                            .padding(.leading)
+                        Button(action: {
+                            showSettings = true
+                        }) {
+                            Image(systemName: "gearshape.fill")
+                                .font(.system(size: 20))
+                                .foregroundColor(Color("LabelPrimary"))
+                                .frame(width: 48, height: 48)
+                                .background(Color("BackgroundSecondary"))
+                                .clipShape(Circle())
+                        }
+                        .buttonStyle(.plain)
                     }
-                    
-                }
-                .padding()
+                    .padding(.horizontal)
+                    .padding(.top, 8)
 
-                Divider()
+                    // Month navigation
+                    HStack(alignment: .center) {
+                        VStack(alignment: .leading, spacing: 0) {
+                            Text(yearString)
+                                .font(.system(size: 17, weight: .regular))
+                                .tracking(-0.43)
+                                .foregroundColor(Color("LabelPrimary"))
+                            Text(monthString)
+                                .font(.system(size: 34, weight: .bold))
+                                .tracking(0.4)
+                                .foregroundColor(Color("LabelPrimary"))
+                        }
 
-                // Month navigation
-                HStack {
-                    Button(action: {
-                        currentMonth = calendar.date(byAdding: .month, value: -1, to: currentMonth)!
-                    }) {
-                        Image(systemName: "chevron.left")
-                            .font(.title2)
-                            .foregroundColor(.primary)
-                    }
-                    
-                    Spacer()
-                    
-                    Text(monthName)
-                        .font(.title)
-                        .fontWeight(.semibold)
-                    
-                    Spacer()
-                    
-                    Button(action: {
-                        currentMonth = calendar.date(byAdding: .month, value: 1, to: currentMonth)!
-                    }) {
-                        Image(systemName: "chevron.right")
-                            .font(.title2)
-                            .foregroundColor(.primary)
-                    }
-                }
-                .padding(.horizontal)
-                .padding(.top, 20)
-                
-                // Weekday headers
-                                LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 7), spacing: 10) {
-                                    ForEach(Array(weekdayNames.enumerated()), id: \.offset) { index, day in
-                                        Text(day)
-                                            .font(.footnote)
-                                            .foregroundColor(.gray)
-                                            .frame(maxWidth: .infinity)
-                                    }
+                        Spacer()
+
+                        HStack(spacing: 16) {
+                            Button(action: {
+                                withAnimation {
+                                    currentMonth = calendar.date(byAdding: .month, value: -1, to: currentMonth)!
                                 }
-                                .padding()
-                
-                // Calendar grid
-                LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 10), count: 7), spacing: 20) {
-                    ForEach(monthDays, id: \.id) { dayItem in
-                        if let date = dayItem.date {
-                            ZStack(alignment: .bottom) {
-                                // Tap indicator background
-                                if let tappedDate = tappedDate, Calendar.current.isDate(date, inSameDayAs: tappedDate) {
-                                    Circle()
-                                        .fill(Color.gray.opacity(0.2))
-                                        .frame(width: 40, height: 40)
-                                }
+                            }) {
+                                Image(systemName: "chevron.left")
+                                    .font(.system(size: 14, weight: .medium))
+                                    .foregroundColor(Color("LabelPrimary"))
+                                    .frame(width: 48, height: 48)
+                                    .background(Color("BackgroundSecondary"))
+                                    .clipShape(RoundedRectangle(cornerRadius: 20))
+                            }
+                            .buttonStyle(.plain)
 
+                            Button(action: {
+                                withAnimation {
+                                    currentMonth = calendar.date(byAdding: .month, value: 1, to: currentMonth)!
+                                }
+                            }) {
+                                Image(systemName: "chevron.right")
+                                    .font(.system(size: 14, weight: .medium))
+                                    .foregroundColor(Color("LabelPrimary"))
+                                    .frame(width: 48, height: 48)
+                                    .background(Color("BackgroundSecondary"))
+                                    .clipShape(RoundedRectangle(cornerRadius: 20))
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                    .padding(.horizontal)
+                    .padding(.top, 24)
+
+                    // Weekday headers
+                    LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 7), spacing: 10) {
+                        ForEach(Array(weekdayNames.enumerated()), id: \.offset) { _, day in
+                            Text(day)
+                                .font(.system(size: 13, weight: .semibold))
+                                .tracking(-0.08)
+                                .foregroundColor(Color("LabelTertiary"))
+                                .frame(maxWidth: .infinity)
+                        }
+                    }
+                    .padding(.horizontal)
+                    .padding(.top, 20)
+
+                    // Calendar grid
+                    LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 4), count: 7), spacing: 8) {
+                        ForEach(monthDays, id: \.id) { dayItem in
+                            if let date = dayItem.date {
+                                let isFuture = isFutureDate(date)
+                                let isTodayDate = isToday(date)
+                                let hasConflictOnDate = hasConflict(on: date)
+                                let isConflictSelected = selectedConflict != nil && selectedConflict?.date != nil && Calendar.current.isDate(date, inSameDayAs: selectedConflict!.date!)
+                                let isDateSelected = selectedDate != nil && Calendar.current.isDate(date, inSameDayAs: selectedDate!)
                                 ZStack {
-                                    let isFuture = isFutureDate(date)
-                                    let isTodayDate = isToday(date)
-                                    let circleColor: Color = hasConflict(on: date) ? conflictIntensity(on: date).color : Color.gray.opacity(0.2)
-
-                                    Circle()
-                                        .fill(circleColor)
-                                        .stroke(
-                                            // Safely check if selectedConflict and its date are non-nil
-                                            selectedConflict != nil && selectedConflict?.date != nil && Calendar.current.isDate(date, inSameDayAs: selectedConflict!.date!) ? Color.gray : Color.gray.opacity(0.5),
-                                            lineWidth: selectedConflict != nil && selectedConflict?.date != nil && Calendar.current.isDate(date, inSameDayAs: selectedConflict!.date!) ? 3 : 0
-                                        )
-                                        .frame(width: 40, height: 40)
-                                        .opacity(isFuture ? 0.3 : 1.0)
-
-                                    // Today indicator border
-                                    if isTodayDate {
-                                        Circle()
-                                            .stroke(Color.gray.opacity(0.5), lineWidth: 2)
-                                            .frame(width: 40, height: 40)
-                                    }
-
-                                    Text(hasConflict(on: date) ? conflictEmoji(on: date) : "\(calendar.component(.day, from: date))")
-                                        .font(.body)
-                                        .foregroundColor(hasConflict(on: date) ? .white : .primary)
-                                        .opacity(isFuture ? 0.3 : 1.0)
-                                }
-
-                                // Indicators for notes and emotions
-                                let hasNoteIndicator = hasNote(on: date)
-                                let hasEmotionIndicator = hasEmotions(on: date)
-
-                                if hasNoteIndicator || hasEmotionIndicator {
-                                    HStack(spacing: 3) {
-                                        if hasNoteIndicator {
-                                            Circle()
-                                                .fill(.orange)
-                                                .frame(width: 4, height: 4)
-                                        }
-                                        if hasEmotionIndicator {
-                                            Circle()
-                                                .fill(Color.gray.opacity(0.6))
-                                                .frame(width: 4, height: 4)
-                                        }
-                                    }
-                                    .offset(y: 8)
-                                }
-                                
-                    
-                            }
-                            .simultaneousGesture(
-                                DragGesture(minimumDistance: 0)
-                                    .onChanged { _ in
-                                        guard !isFutureDate(date) else { return }
-                                        tappedDate = date
-                                    }
-                                    .onEnded { _ in
-                                        guard !isFutureDate(date) else {
-                                            tappedDate = nil
-                                            return
-                                        }
-                                        tappedDate = nil
-                                        if hasConflict(on: date) {
-                                            selectedConflict = conflicts.first {
-                                                Calendar.current.isDate($0.date!, inSameDayAs: date)
+                                    if hasConflictOnDate {
+                                        conflictShapeView(for: conflictIntensity(on: date), size: 34)
+                                            .overlay(alignment: .bottom) {
+                                                if hasNote(on: date) {
+                                                    Circle()
+                                                        .fill(Color("Orange"))
+                                                        .frame(width: 5, height: 5)
+                                                        .offset(y: 4)
+                                                }
                                             }
-                                        } else {
-                                            dateForNewConflict = IdentifiableDate(date: date)
-                                        }
+                                            .opacity(isFuture ? 0.3 : 1.0)
+                                    } else if isDateSelected || (isTodayDate && selectedDate == nil && selectedConflict == nil) {
+                                        // Selected date or today as default selection: solid fill
+                                        RoundedRectangle(cornerRadius: 20)
+                                            .fill(Color("LabelPrimary"))
+                                            .frame(width: 48, height: 48)
+                                        Text("\(calendar.component(.day, from: date))")
+                                            .font(.system(size: 15, weight: .regular))
+                                            .tracking(-0.23)
+                                            .foregroundColor(Color("White"))
+                                    } else if isTodayDate {
+                                        // Today when another date is selected: outline ring
+                                        RoundedRectangle(cornerRadius: 20)
+                                            .stroke(Color("LabelPrimary"), lineWidth: 2)
+                                            .frame(width: 48, height: 48)
+                                        Text("\(calendar.component(.day, from: date))")
+                                            .font(.system(size: 15, weight: .semibold))
+                                            .tracking(-0.23)
+                                            .foregroundColor(Color("LabelPrimary"))
+                                    } else {
+                                        Text("\(calendar.component(.day, from: date))")
+                                            .font(.system(size: 15, weight: .regular))
+                                            .tracking(-0.23)
+                                            .foregroundColor(Color("LabelPrimary"))
+                                            .opacity(isFuture ? 0.3 : 1.0)
                                     }
-                            )
-                        } else {
-                            Text("") // Empty cell for padding
-                                .frame(height: 40)
+                                }
+                                .frame(width: 48, height: 48)
+                                .background(
+                                    (isConflictSelected || (isTodayDate && hasConflictOnDate && selectedDate == nil && selectedConflict == nil)) ?
+                                    RoundedRectangle(cornerRadius: 20)
+                                        .stroke(Color("LabelTertiary"), lineWidth: 2)
+                                        .frame(width: 48, height: 48) : nil
+                                )
+                                .contentShape(Rectangle())
+                                .simultaneousGesture(
+                                    DragGesture(minimumDistance: 0)
+                                        .onChanged { _ in
+                                            guard !isFuture else { return }
+                                            tappedDate = date
+                                        }
+                                        .onEnded { _ in
+                                            guard !isFuture else {
+                                                tappedDate = nil
+                                                return
+                                            }
+                                            tappedDate = nil
+                                            if hasConflictOnDate {
+                                                selectedDate = nil
+                                                selectedConflict = conflicts.first {
+                                                    Calendar.current.isDate($0.date!, inSameDayAs: date)
+                                                }
+                                            } else {
+                                                selectedConflict = nil
+                                                selectedDate = date
+                                            }
+                                        }
+                                )
+                            } else {
+                                Color.clear
+                                    .frame(height: 48)
+                            }
                         }
                     }
-                }
-                .padding(.horizontal)
-                .padding(.bottom)
-                .gesture(
-                    DragGesture(minimumDistance: 50)
-                        .onEnded { value in
-                            let horizontalTranslation = value.translation.width
-
-                            // Swipe right (positive) = previous month
-                            if horizontalTranslation > 50 {
-                                withAnimation {
-                                    if let previousMonth = calendar.date(byAdding: .month, value: -1, to: currentMonth) {
-                                        currentMonth = previousMonth
+                    .padding(.horizontal)
+                    .padding(.top, 8)
+                    .gesture(
+                        DragGesture(minimumDistance: 50)
+                            .onEnded { value in
+                                let horizontalTranslation = value.translation.width
+                                if horizontalTranslation > 50 {
+                                    withAnimation {
+                                        if let previousMonth = calendar.date(byAdding: .month, value: -1, to: currentMonth) {
+                                            currentMonth = previousMonth
+                                        }
+                                    }
+                                } else if horizontalTranslation < -50 {
+                                    withAnimation {
+                                        if let nextMonth = calendar.date(byAdding: .month, value: 1, to: currentMonth) {
+                                            currentMonth = nextMonth
+                                        }
                                     }
                                 }
                             }
-                            // Swipe left (negative) = next month
-                            else if horizontalTranslation < -50 {
-                                withAnimation {
-                                    if let nextMonth = calendar.date(byAdding: .month, value: 1, to: currentMonth) {
-                                        currentMonth = nextMonth
-                                    }
-                                }
+                    )
+                    .sheet(item: $dateForNewConflict, onDismiss: {
+                        if let date = dateForNewConflict?.date ?? lastNewConflictDate {
+                            if let conflict = conflicts.first(where: {
+                                guard let d = $0.date else { return false }
+                                return Calendar.current.isDate(d, inSameDayAs: date)
+                            }) {
+                                selectedDate = nil
+                                selectedConflict = conflict
                             }
+                            lastNewConflictDate = nil
                         }
-                )
-                .sheet(item: $dateForNewConflict) { identifiableDate in
-                    NavigationStack {
+                    }) { identifiableDate in
                         ConflictEditorView(
                             dates: generateDatesAround(date: identifiableDate.date),
                             initialDate: identifiableDate.date
                         )
                         .environmentObject(conflictManager)
-                        .toolbar {
-                            ToolbarItem(placement: .confirmationAction) {
-                                Button("Done") {
-                                    dateForNewConflict = nil
+                        .presentationBackground(Color("BackgroundSecondary"))
+                        .interactiveDismissDisabled()
+                        .onAppear { lastNewConflictDate = identifiableDate.date }
+                    }
+
+                    // Conflict details or peaceful day message
+                    if let conflict = activeConflict {
+                        ConflictDetailView(
+                            conflict: conflict,
+                            onDelete: {
+                                Task { @MainActor in
+                                    do {
+                                        guard let conflictDate = conflict.date else {
+                                            selectedConflict = nil
+                                            return
+                                        }
+                                        try conflictManager.deleteConflict(for: conflictDate)
+                                        selectedConflict = nil
+                                    } catch {
+                                        print("Error deleting conflict: \(error)")
+                                    }
+                                }
+                            },
+                            onRefresh: {
+                                if let conflictDate = conflict.date {
+                                    selectedConflict = conflicts.first {
+                                        Calendar.current.isDate($0.date!, inSameDayAs: conflictDate)
+                                    }
                                 }
                             }
+                        )
+                        .padding()
+                        .background(
+                            RoundedRectangle(cornerRadius: 20)
+                                .fill(Color("BackgroundSecondary"))
+                        )
+                        .padding(.horizontal)
+                        .padding(.top, 16)
+                    } else if showPeacefulDay {
+                   
+                        HStack {
+                            Spacer()
+                            Text("A peaceful day")
+                                .font(.system(size: 17, weight: .regular))
+                                .tracking(-0.43)
+                                .foregroundColor(Color("LabelSecondary"))
+                                .padding(.top,48)
+                            Spacer()
                         }
                     }
+
+                    Spacer()
                 }
 
-
-                // Conflict details
-                if let conflict = selectedConflict {
-                    ConflictDetailView(
-                        conflict: conflict,
-                        onDelete: {
-                            Task { @MainActor in
-                                do {
-                                    guard let conflictDate = conflict.date else {
-                                        print("Error: Conflict date is nil for id \(conflict.id?.uuidString ?? "unknown")")
-                                        selectedConflict = nil
-                                        return
-                                    }
-                                    try conflictManager.deleteConflict(for: conflictDate)
-                                    selectedConflict = nil
-                                } catch {
-                                    print("Error deleting conflict: \(error)")
-                                }
-                            }
-                        },
-                        onRefresh: {
-                            // Refresh selectedConflict with updated data
-                            if let conflictDate = conflict.date {
-                                selectedConflict = conflicts.first {
-                                    Calendar.current.isDate($0.date!, inSameDayAs: conflictDate)
-                                }
-                            }
+                // Plus button
+                if let targetDate = plusButtonDate {
+                    Button(action: {
+                        dateForNewConflict = IdentifiableDate(date: targetDate)
+                    }) {
+                        if #available(iOS 26.0, *) {
+                            Text("+")
+                                .font(.system(size: 22, weight: .regular))
+                                .tracking(-0.26)
+                                .foregroundColor(Color("LabelPrimary"))
+                                .frame(width: 75, height: 60)
+                                .background(Color("BackgroundSecondary"))
+                                .clipShape(RoundedRectangle(cornerRadius: 50))
+                                .glassEffect(in: .capsule)
+                        } else {
+                            Text("+")
+                                .font(.system(size: 22, weight: .regular))
+                                .tracking(-0.26)
+                                .foregroundColor(Color("LabelPrimary"))
+                                .frame(width: 75, height: 60)
+                                .background(Color("BackgroundSecondary"))
+                                .clipShape(RoundedRectangle(cornerRadius: 50))
+                                
                         }
-                    )
-                    .padding()
-                    .background(
-                        RoundedRectangle(cornerRadius: 20)
-                            .stroke(.gray.opacity(0.2), lineWidth: 1)
-                    )
-                    .padding(.horizontal)
+                            
+                    }
+                    .buttonStyle(.plain)
+                    .padding(.bottom, 16)
                 }
-                
-                Spacer()
             }
             .onChange(of: currentMonth) { _, _ in
                 selectedConflict = nil
+                selectedDate = nil
             }
             .onAppear {
-                // Only check iCloud status and observe sync events for premium users
                 if purchaseManager.isPremium {
                     checkiCloudStatus()
                     observeSyncEvents()
@@ -521,39 +670,19 @@ struct CalendarView: View {
             }
             .navigationDestination(isPresented: $showStatistics) {
                 StatisticsView()
-                    .environmentObject(conflictManager)
             }
             .sheet(isPresented: $showPaywall) {
                 PaywallView(feature: .statistics)
                     .environmentObject(purchaseManager)
             }
             .navigationBarTitleDisplayMode(.inline)
+            .toolbar(.hidden, for: .navigationBar)
             .overlay(alignment: .top) {
                 if showSyncBanner {
                     SyncStatusBanner(status: syncStatus, lastSyncTime: lastSyncTime)
                         .transition(.move(edge: .top).combined(with: .opacity))
                 }
             }
-//            #if canImport(SwiftUI)
-//            .background {
-//                if #available(iOS 18.0, *) {
-//                    MeshGradient(
-//                        width: 3,
-//                        height: 3,
-//                        points: [
-//                            .init(x: 0, y: 0), .init(x: 0.8, y: 0), .init(x: 1, y: 0),
-//                            .init(x: 0, y: 0.2), .init(x: 0.1, y: 0.5), .init(x: 1, y: 0.5),
-//                            .init(x: 0, y: 1), .init(x: 0, y: 1), .init(x: 1, y: 1)
-//                        ],
-//                        colors: [
-//                            Color(hex: "#EAAB04").opacity(0.2), Color(hex: "#A640BC").opacity(0.2), Color(hex: "#A640BC").opacity(0.2),
-//                            .clear, .clear, .clear,
-//                            .clear, .clear, .clear
-//                        ]
-//                    )
-//                }
-//            }
-//            #endif
         }
     }
 }
@@ -579,7 +708,6 @@ struct ConflictDetailView: View {
         for offset in -5...5 {
             if let newDate = calendar.date(byAdding: .day, value: offset, to: date) {
                 let compareDate = calendar.startOfDay(for: newDate)
-                // Only include dates that are today or in the past
                 if compareDate <= today {
                     dates.append(newDate)
                 }
@@ -590,55 +718,42 @@ struct ConflictDetailView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            HStack {
+            // Top row: details + menu button
+            HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 10) {
+                    // Date
                     HStack {
-                        Text("Date:")
+                        Text(NSLocalizedString("Date:", comment: ""))
                             .font(.headline)
-                            .foregroundColor(.gray)
+                            .foregroundColor(Color("LabelTertiary"))
                         Text(dateFormatter.string(from: conflict.date ?? Date()))
                             .font(.body)
+                            .foregroundColor(Color("LabelPrimary"))
                     }
+
+                    // Intensity
                     HStack {
-                        Text("Intensity:")
+                        Text(NSLocalizedString("Intensity:", comment: ""))
                             .font(.headline)
-                            .foregroundColor(.gray)
+                            .foregroundColor(Color("LabelTertiary"))
                         Text(ConflictIntensity(string: conflict.intensity)?.displayName ?? NSLocalizedString("unknown_intensity", comment: "Unknown intensity"))
                             .font(.body)
+                            .foregroundColor(Color("LabelPrimary"))
                     }
-                    VStack(alignment: .leading) {
-                        Text("Note:")
+
+                    // Emotions
+                    HStack(alignment: .top){
+                        Text(NSLocalizedString("Emotions:", comment: ""))
                             .font(.headline)
-                            .foregroundColor(.gray)
-                        Text(conflict.notes ?? "")
-                            .font(.body)
-                            .multilineTextAlignment(.leading)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                    }
-
-                    // Emotion Tags
-                    if let emotionsString = conflict.emotions, !emotionsString.isEmpty {
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("Emotions:")
-                                .font(.headline)
-                                .foregroundColor(.gray)
-
-                            ScrollView(.horizontal, showsIndicators: false) {
-                                HStack(spacing: 8) {
-                                    ForEach(emotionsString.split(separator: ",").map(String.init), id: \.self) { emotion in
-                                        Text(LocalizedStringKey(emotion))
-                                            .font(.system(size: 13))
-                                            .tracking(-0.08)
-                                            .foregroundColor(Color(hex: "#9c36b2"))
-                                            .padding(.horizontal, 16)
-                                            .padding(.vertical, 8)
-                                            .background(
-                                                Capsule()
-                                                    .fill(Color(hex: "#9c36b2").opacity(0.2))
-                                            )
-                                    }
-                                }
-                            }
+                            .foregroundColor(Color("LabelTertiary"))
+                        if let emotionsString = conflict.emotions, !emotionsString.isEmpty {
+                            Text(emotionsString.split(separator: ",").map { NSLocalizedString(String($0), comment: "") }.joined(separator: ", "))
+                                .font(.body)
+                                .foregroundColor(Color("LabelPrimary"))
+                        } else {
+                            Text(NSLocalizedString("None", comment: ""))
+                                .font(.body)
+                                .foregroundColor(Color("LabelTertiary"))
                         }
                     }
                 }
@@ -651,20 +766,41 @@ struct ConflictDetailView: View {
                             showEditSheet = IdentifiableDate(date: date)
                         }
                     }) {
-                        Label("Edit", systemImage: "pencil")
+                        Label(NSLocalizedString("Edit", comment: ""), systemImage: "pencil")
                     }
 
                     Button(role: .destructive, action: {
                         showDeleteConfirmation = true
                     }) {
-                        Label("Delete", systemImage: "trash")
+                        Label(NSLocalizedString("Delete", comment: ""), systemImage: "trash")
                     }
                 } label: {
                     Image(systemName: "ellipsis")
-                        .foregroundColor(.gray)
+                        .foregroundColor(Color("LabelSecondary"))
                         .font(.body)
                         .padding(12)
-                        .background(Circle().fill(Color(uiColor: .systemGray6)))
+                        .background(Circle().fill(Color("BackgroundSecondary")))
+                }
+            }
+
+            // Notes
+            VStack(alignment: .leading, spacing: 8) {
+                Text(NSLocalizedString("Notes:", comment: ""))
+                    .font(.headline)
+                    .foregroundColor(Color("LabelTertiary"))
+
+                if let notes = conflict.notes, !notes.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    Text(notes)
+                        .font(.system(size: 15, weight: .regular))
+                        .tracking(-0.23)
+                        .foregroundColor(Color("LabelPrimary").opacity(0.7))
+                        .multilineTextAlignment(.leading)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                } else {
+                    Text(NSLocalizedString("None", comment: ""))
+                        .font(.body)
+                        .tracking(-0.23)
+                        .foregroundColor(Color("LabelTertiary"))
                 }
             }
         }
@@ -683,23 +819,16 @@ struct ConflictDetailView: View {
         .sheet(item: $showEditSheet, onDismiss: {
             onRefresh()
         }) { identifiableDate in
-            NavigationStack {
-                ConflictEditorView(
-                    dates: generateDatesAround(date: identifiableDate.date),
-                    initialDate: identifiableDate.date
-                )
-                .environmentObject(conflictManager)
-                .toolbar {
-                    ToolbarItem(placement: .confirmationAction) {
-                        Button("Done") {
-                            showEditSheet = nil
-                        }
-                    }
-                }
-            }
+            ConflictEditorView(
+                dates: generateDatesAround(date: identifiableDate.date),
+                initialDate: identifiableDate.date
+            )
+            .environmentObject(conflictManager)
+            .presentationBackground(Color("BackgroundSecondary"))
+            .interactiveDismissDisabled()
         }
     }
-    
+
     private var dateFormatter: DateFormatter {
         let formatter = DateFormatter()
         formatter.dateStyle = .medium
@@ -717,15 +846,15 @@ struct SyncStatusBanner: View {
         case .available:
             if let lastSync = lastSyncTime {
                 let timeAgo = timeAgoString(from: lastSync)
-                return ("checkmark.icloud.fill", "Synced \(timeAgo)", .green)
+                return ("checkmark.icloud.fill", "Synced \(timeAgo)", Color("Green"))
             }
-            return ("checkmark.icloud.fill", "iCloud Synced", .green)
+            return ("checkmark.icloud.fill", "iCloud Synced", Color("Green"))
         case .syncing:
-            return ("arrow.triangle.2.circlepath.icloud.fill", "Syncing...", .blue)
+            return ("arrow.triangle.2.circlepath.icloud.fill", "Syncing...", Color("LabelPrimary"))
         case .notAvailable(let message):
-            return ("exclamationmark.icloud.fill", message, .orange)
+            return ("exclamationmark.icloud.fill", message, Color("Orange"))
         case .error(let message):
-            return ("xmark.icloud.fill", message, .red)
+            return ("xmark.icloud.fill", message, Color("Orange"))
         }
     }
 
@@ -743,7 +872,7 @@ struct SyncStatusBanner: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 8)
-        .background(bannerConfig.color.opacity(0.1))
+        .background(Color("BackgroundSecondary"))
     }
 
     private func timeAgoString(from date: Date) -> String {
@@ -766,9 +895,11 @@ struct SyncStatusBanner: View {
 
 // MARK: Preview
 #Preview {
+   
     CalendarView()
         .environment(\.managedObjectContext, PersistenceController.shared.container.viewContext)
         .environmentObject(ConflictManager(context: PersistenceController.shared.container.viewContext))
         .environmentObject(PurchaseManager.shared)
         .preferredColorScheme(.light)
+    SyncStatusBanner(status: .syncing, lastSyncTime: Date())
 }

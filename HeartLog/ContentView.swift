@@ -4,20 +4,7 @@ import SwiftUI
 
 struct ContentView: View {
     var body: some View {
-        TabView {
-            MainView()
-                .tabItem {
-                    Label("Log", systemImage: "heart")
-                        
-                }
-            
-            CalendarView()
-                .tabItem {
-                    Label("Calendar", systemImage: "calendar")
-                        
-                }
-        }
-        .tint(Color(hex: "#A640BC"))
+        CalendarView()
     }
 }
 

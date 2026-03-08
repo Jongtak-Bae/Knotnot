@@ -8,14 +8,14 @@ struct OnboardingView: View {
     var body: some View {
         ZStack {
             // Background color
-            Color(hex: "fff8ee")
+            Color("BackgroundPrimary")
                 .ignoresSafeArea()
 
             // Top-left gradient glow
             Circle()
                 .fill(
                     RadialGradient(
-                        colors: [Color.purple.opacity(0.15), Color.clear],
+                        colors: [Color(hex: "FFB52D").opacity(0.15), Color.clear],
                         center: .center,
                         startRadius: 0,
                         endRadius: 150
@@ -35,6 +35,7 @@ struct OnboardingView: View {
                             .fixedSize(horizontal: false, vertical: true)
                             .minimumScaleFactor(0.5)
                             .padding(.horizontal, 32)
+                            .padding(.trailing)
                             .padding(.top, 160)
                             .frame(maxWidth: .infinity, alignment: .leading)
 
@@ -43,12 +44,12 @@ struct OnboardingView: View {
                         // Animated knot heart
                         AnimatedKnotHeart(
                             startAnimation: currentPage == 0,
-                            strokeColor: Color(hex: "DC12E8"),
-                            strokeWidth: 10,
+                            strokeColor: Color("Orange"),
+                            strokeWidth: 15,
                             animationDuration: 2.5
                         )
                         .frame(maxWidth: .infinity)
-                        .frame(height: 220)
+                        .frame(height: 200)
                         .padding(.bottom, 60)
 
                         Spacer()
@@ -127,7 +128,7 @@ struct OnboardingView: View {
                             .foregroundColor(.white)
                             .padding(.horizontal, 34)
                             .padding(.vertical, 16)
-                            .background(Color(hex: "1b1b1b"))
+                            .background(Color("LabelPrimary"))
                             .clipShape(Capsule())
                     }
                     .padding(.trailing, 40)

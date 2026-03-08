@@ -1,5 +1,7 @@
 import SwiftUI
+import UIKit
 
+// MARK: - ConflictEditorView (Half Sheet with 3 Pages)
 struct ConflictEditorView: View {
     @EnvironmentObject private var conflictManager: ConflictManager
     @EnvironmentObject private var purchaseManager: PurchaseManager
@@ -12,533 +14,785 @@ struct ConflictEditorView: View {
     let dates: [Date]
     let initialDate: Date
 
-    @State private var centeredIndex: Int
-    @State private var scrollPosition: Int?
-
-    @State private var selectedPerson: String = "Him"
-    @State private var intensity: ConflictIntensity = .moderate
-    @State private var userText: String = ""
-    @State private var isSheetPresented = false
+    @State private var currentPage: Int = 0 // 0=Knot, 1=Emotions, 2=Notes
+    @State private var intensity: ConflictIntensity = .minor
     @State private var selectedEmotions: Set<String> = []
+    @State private var userText: String = ""
+    @State private var draftText: String = ""
+    @State private var hasLoggedConflict: Bool = false
 
-    // Confirmation dialogs
-    @State private var showDeleteNoteConfirmation = false  // For menu delete (notes only)
-    @State private var showDeleteConflictConfirmation = false  // For circle tap (entire conflict)
-    @State private var dateToDelete: Date? = nil
+    // Knot drag state
+    @State private var dragOffset: CGFloat = 0
+    @State private var verticalDragOffset: CGFloat = 0
+    @State private var isDragging: Bool = false
+    @State private var dragStartIntensity: ConflictIntensity = .minor
+    @State private var lineColor: Color = Color("Green")
+    @State private var currentKnotAsset: String = "conflict-minor"
+
+    @FocusState private var isTextEditorFocused: Bool
+
+    @Environment(\.dismiss) private var dismiss
+
+    @State private var showPaywall: Bool = false
+    @State private var showCharacterLimitError = false
+    @State private var showUpgradePrompt = false
+    @State private var showDiscardWarning = false
+    @State private var isEditingExisting: Bool = false
 
     init(dates: [Date], initialDate: Date) {
         self.dates = dates
         self.initialDate = initialDate
-        let index = dates.firstIndex(where: {
-            Calendar.current.isDate($0, inSameDayAs: initialDate)
-        }) ?? 0
-        _centeredIndex = State(initialValue: index)
-        _scrollPosition = State(initialValue: index)
-        
     }
-    
+
+    private var pageTitle: String {
+        switch currentPage {
+        case 0: return NSLocalizedString("Knot", comment: "")
+        case 1: return NSLocalizedString("How are you feeling?", comment: "")
+        case 2: return NSLocalizedString("Notes", comment: "")
+        default: return ""
+        }
+    }
+
+    private var screenCornerRadius: CGFloat {
+        (UIScreen.main.value(forKey: ["_display", "Corner", "Radius"].joined()) as? CGFloat) ?? 55
+    }
+
     var body: some View {
-        VStack {
-            // MARK: Date header
-            VStack(alignment: .leading) {
-                Text(year(from: dates[centeredIndex]))
-                    .font(.largeTitle)
-                    .foregroundStyle(.gray)
-
-                Text(dayAndMonth(from: dates[centeredIndex]))
-                    .font(.system(size: 48))
-                    .fontWeight(.semibold)
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.top, 60)
-            .padding(.leading, 30)
-            ZStack{
-                RoundedRectangle(cornerRadius: 70)
-                    .frame(width: 140, height: 200)
-                    .offset(x: 0, y: -30)
-                    .foregroundStyle(Color("Purple"))
-                // MARK: Carousel (unchanged)
-                ScrollView(.horizontal) {
-                    LazyHStack(spacing: 0) {
-                        ForEach(Array(dates.enumerated()), id: \.offset) { index, date in
-                            DateCircleView(
-                                date: date,
-                                index: index,
-                                centeredIndex: centeredIndex,
-                                conflicts: conflicts,
-                                selectedDateIndex: .constant(nil),
-                                scrollPosition: $scrollPosition,
-                                onTap: { toggleConflictForDate(date: date, index: index) }
-                            )
-                            .containerRelativeFrame(.horizontal)
-                            .scrollTransition { content, phase in
-                                content
-                                    .scaleEffect(phase.isIdentity ? 1.2 : 0.8)
-                                    .opacity(phase.isIdentity ? 1.0 : 0.5)
-                            }
+        VStack(spacing: 0) {
+            // Shared header
+            HStack {
+                // Left button
+                if currentPage > 0 {
+                    Button(action: {
+                        withAnimation(.easeInOut(duration: 0.25)) {
+                            currentPage -= 1
                         }
+                    }) {
+                        Image(systemName: "chevron.left")
+                            .font(.system(size: 14, weight: .medium))
+                            .foregroundColor(Color("LabelPrimary"))
+                            .frame(width: 48, height: 48)
+                            .background(Color("BackgroundPrimary"))
+                            .clipShape(RoundedRectangle(cornerRadius: 20))
                     }
-                    .scrollTargetLayout()
+                } else {
+                    Color.clear.frame(width: 48, height: 48)
                 }
-                .contentMargins(120.0, for: .scrollContent)
-                .scrollTargetBehavior(.viewAligned)
-                .scrollIndicators(.hidden)
-                .frame(height: 250)
-                .scrollPosition(id: $scrollPosition)
-                .task {
-                    // Small delay to ensure LazyHStack is ready
-                    try? await Task.sleep(nanoseconds: 50_000_000) // 0.05s
-                    scrollPosition = centeredIndex
-                    refreshUIState(for: dates[centeredIndex])
-                    
-                }
-                .onChange(of: scrollPosition) { _, newValue in
-                    guard let newValue = newValue else { return }
-                    centeredIndex = newValue
-                    refreshUIState(for: dates[centeredIndex])
+
+                Spacer()
+
+                Text(pageTitle)
+                    .font(.system(size: 17, weight: .regular))
+                    .tracking(-0.43)
+                    .foregroundColor(Color("LabelPrimary"))
+
+                Spacer()
+
+                // Right button
+                if currentPage < 2 {
+                    Button(action: {
+                        withAnimation(.easeInOut(duration: 0.25)) {
+                            currentPage += 1
+                        }
+                    }) {
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 14, weight: .medium))
+                            .foregroundColor(Color("LabelPrimary"))
+                            .frame(width: 48, height: 48)
+                            .background(Color("BackgroundPrimary"))
+                            .clipShape(RoundedRectangle(cornerRadius: 20))
+                    }
+                } else {
+                    // Checkmark save & close button
+                    Button(action: {
+                        if !hasLoggedConflict {
+                            if !selectedEmotions.isEmpty || !draftText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                                showDiscardWarning = true
+                            } else {
+                                dismiss()
+                            }
+                        } else if noteAccessManager.canSaveNote(withLength: draftText.count) {
+                            userText = draftText
+                            saveConflict()
+                            dismiss()
+                        } else {
+                            showCharacterLimitError = true
+                        }
+                    }) {
+                        Image(systemName: "checkmark")
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundColor(Color("Green"))
+                            .frame(width: 48, height: 48)
+                            .background(Color("BackgroundPrimary"))
+                            .clipShape(RoundedRectangle(cornerRadius: 20))
+                    }
                 }
             }
-          
-            
-            // MARK: Intensity
-            Text(intensity.displayName)
-                .foregroundStyle(.gray)
+            .padding(.horizontal, 20)
+            .padding(.top, 24)
 
-            SteppedSlider(value: $intensity)
-                .frame(width: 150)
-                .onChange(of: intensity) { _, _ in
-                    saveIfExists()
-                }
+            // Page content
+            switch currentPage {
+            case 0:
+                knotPage
+            case 1:
+                emotionPage
+            case 2:
+                notesPage
+            default:
+                knotPage
+            }
+        }
+        .presentationDetents([.medium])
+        .presentationDragIndicator(.hidden)
+        .presentationCornerRadius(screenCornerRadius)
+        .background(Color("BackgroundSecondary"))
+        .clipShape(RoundedRectangle(cornerRadius: screenCornerRadius))
+        .onAppear {
+            refreshUIState()
+        }
+        .sheet(isPresented: $showPaywall) {
+            PaywallView(feature: .emotionTags)
+                .environmentObject(purchaseManager)
+        }
+        .sheet(isPresented: $showUpgradePrompt) {
+            PaywallView(feature: .unlimitedNotes)
+                .environmentObject(purchaseManager)
+        }
+        .alert("Character Limit Reached", isPresented: $showCharacterLimitError) {
+            Button("Upgrade to Premium") {
+                showUpgradePrompt = true
+            }
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text("Free users can write up to 200 characters. Upgrade to Premium for unlimited notes.")
+        }
+        .alert(NSLocalizedString("Discard Changes?", comment: ""), isPresented: $showDiscardWarning) {
+            Button(NSLocalizedString("Discard", comment: ""), role: .destructive) {
+                dismiss()
+            }
+            Button(NSLocalizedString("Cancel", comment: ""), role: .cancel) { }
+        } message: {
+            Text(NSLocalizedString("You haven't logged a conflict. Your emotion tags and notes will be discarded.", comment: ""))
+        }
+    }
 
-            // MARK: Notes Button
-            if userText.isEmpty || selectedEmotions.isEmpty{
-                Button(action: {
-                    isSheetPresented = true
-                }) {
-                    Text("Add Notes")
-                        .font(.system(size: 17))
-                        .foregroundColor(Color(hex: "#7f809e"))
-                        .padding(.horizontal, 24)
-                        .padding(.vertical, 12)
-                        .frame(height: 47)
-                        .background(
-                            Capsule()
-                                .stroke(Color(hex: "#b0b0c9"), lineWidth: 1)
-                        )
-                }
-                .padding(.top, 20)
+    // MARK: - Page 1: Knot
+    private var knotPage: some View {
+        VStack(spacing: 0) {
+            Spacer()
+
+            // Intensity label
+            if hasLoggedConflict {
+                Text(intensity.displayName)
+                    .font(.system(size: 17, weight: .regular))
+                    .tracking(-0.43)
+                    .foregroundColor(Color("LabelSecondary"))
+                    .padding(.bottom, 16)
+            } else {
+                Text("Tap to log a conflict")
+                    .font(.system(size: 17, weight: .regular))
+                    .tracking(-0.43)
+                    .foregroundColor(Color("LabelSecondary"))
+                    .padding(.bottom, 16)
             }
 
-            // MARK: Display Notes and Emotions
-            if !userText.isEmpty || !selectedEmotions.isEmpty {
-                ZStack {
-                    VStack(alignment: .leading, spacing: 12) {
-                        // Emotion Tags (only show for premium users)
-                        if purchaseManager.isPremium && !selectedEmotions.isEmpty {
-                            ScrollView(.horizontal, showsIndicators: false) {
-                                HStack(spacing: 8) {
-                                    ForEach(Array(selectedEmotions).sorted(), id: \.self) { emotion in
-                                        Text(LocalizedStringKey(emotion))
-                                            .font(.system(size: 13))
-                                            .tracking(-0.08)
-                                            .foregroundColor(Color(hex: "#9c36b2"))
-                                            .padding(.horizontal, 16)
-                                            .padding(.vertical, 8)
-                                            .background(
-                                                Capsule()
-                                                    .fill(Color(hex: "#9c36b2").opacity(0.2))
-                                            )
+            // Knot line with draggable knot
+            knotLineView
+                .padding(.horizontal, 24)
+
+            Spacer()
+        }
+    }
+
+    // MARK: - Knot Line View
+    private let deleteThreshold: CGFloat = 120
+
+    private var knotLineView: some View {
+        GeometryReader { geo in
+            let totalWidth = geo.size.width
+            let endCapWidth: CGFloat = 9
+            let endCapHeight: CGFloat = 27
+            let lineHeight: CGFloat = 15
+            let knotSize: CGFloat = 50
+            let halfTrack = (totalWidth - endCapWidth * 2) / 2
+            let lineY: CGFloat = knotSize / 2
+            let knotX = totalWidth / 2 + dragOffset
+            let knotY = lineY + verticalDragOffset
+            let isDeleting = verticalDragOffset >= deleteThreshold
+
+            ZStack {
+                // Main line — broken line (two segments meeting at knot)
+                BrokenLineShape(
+                    bendX: knotX,
+                    bendY: knotY,
+                    lineY: lineY,
+                    leftX: endCapWidth / 2,
+                    rightX: totalWidth - endCapWidth / 2
+                )
+                .stroke(lineColor, style: StrokeStyle(lineWidth: lineHeight, lineCap: .round, lineJoin: .round))
+
+                // Left end cap
+                RoundedRectangle(cornerRadius: 7)
+                    .fill(lineColor.opacity(0.8))
+                    .frame(width: endCapWidth, height: endCapHeight)
+                    .position(x: endCapWidth / 2, y: lineY)
+
+                // Right end cap
+                RoundedRectangle(cornerRadius: 7)
+                    .fill(lineColor.opacity(0.8))
+                    .frame(width: endCapWidth, height: endCapHeight)
+                    .position(x: totalWidth - endCapWidth / 2, y: lineY)
+
+                // Knot image (shown after tapping)
+                if hasLoggedConflict {
+                    Image(currentKnotAsset)
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                        .frame(width: knotSize, height: knotSize)
+                        .position(x: knotX, y: knotY)
+                        .gesture(
+                            DragGesture()
+                                .onChanged { drag in
+                                    if !isDragging {
+                                        isDragging = true
+                                        dragStartIntensity = intensity
+                                    }
+                                    let clampedOffset = min(max(drag.translation.width, -halfTrack), halfTrack)
+                                    dragOffset = clampedOffset
+                                    verticalDragOffset = isEditingExisting ? 0 : max(0, drag.translation.height)
+                                    updateIntensityFromDrag(halfTrack: halfTrack)
+                                }
+                                .onEnded { _ in
+                                    isDragging = false
+                                    if verticalDragOffset >= deleteThreshold {
+                                        try? conflictManager.deleteConflict(for: initialDate)
+                                        withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
+                                            hasLoggedConflict = false
+                                            dragOffset = 0
+                                            verticalDragOffset = 0
+                                            intensity = .minor
+                                            selectedEmotions = []
+                                            userText = ""
+                                            draftText = ""
+                                            lineColor = Color("Green")
+                                            currentKnotAsset = "conflict-minor"
+                                        }
+                                        UIImpactFeedbackGenerator(style: .heavy).impactOccurred()
+                                    } else {
+                                        saveConflict()
+                                        withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
+                                            dragOffset = 0
+                                            verticalDragOffset = 0
+                                            lineColor = intensity.color
+                                            currentKnotAsset = knotAssetForIntensity(intensity)
+                                        }
                                     }
                                 }
-                            }
-                            .padding(.top, 16)
-                            .padding(.horizontal, 24)
-                        }
-
-                        // Note Text
-                        if !userText.isEmpty {
-                            Text(userText)
-                                .font(.system(size: 17, weight: .medium))
-                                .foregroundColor(.primary)
-                                .lineLimit(4)
-                                .truncationMode(.tail)
-                                .frame(maxWidth: .infinity, alignment: .topLeading)
-                                .padding(.horizontal, 24)
-                                .padding(.top, (purchaseManager.isPremium && !selectedEmotions.isEmpty) ? 8 : 25)
-                                .padding(.bottom, 25)
-                        } else {
-                            Spacer()
-                                .padding(.bottom, 25)
-                        }
-                    }
-                    .frame(maxWidth: .infinity, alignment: .topLeading)
-
-                    VStack {
-                        Spacer()
-                        HStack {
-                            Spacer()
-                            Menu {
-                                Button(action: {
-                                    isSheetPresented = true
-                                }) {
-                                    Label("Edit", systemImage: "pencil")
-                                }
-
-                                Button(role: .destructive, action: {
-                                    showDeleteNoteConfirmation = true
-                                }) {
-                                    Label("Delete Note", systemImage: "trash")
-                                }
-                            } label: {
-                                Image(systemName: "ellipsis")
-                                    .foregroundColor(.gray)
-                                    .font(.body)
-                                    .padding(12)
-                                    .background(Circle().fill(Color(uiColor: .systemGray6)))
-                            }
-                            .padding(.trailing, 12)
-                            .padding(.bottom, 12)
-                        }
-                    }
+                        )
+                        .sensoryFeedback(.impact(flexibility: .solid, intensity: 0.5), trigger: intensity)
                 }
-                .frame(minHeight: 100)
+
+                // Trash icon — appears when dragging down
+                if hasLoggedConflict && verticalDragOffset > 20 {
+                    Image(systemName: isDeleting ? "trash.circle.fill" : "trash.circle")
+                        .font(.system(size: isDeleting ? 40 : 32))
+                        .foregroundColor(isDeleting ? .red : Color("LabelSecondary"))
+                        .position(x: totalWidth / 2, y: lineY + deleteThreshold + 40)
+                        .opacity(min(1, Double(verticalDragOffset - 20) / 40))
+                        .scaleEffect(isDeleting ? 1.2 : 1.0)
+                        .animation(.easeOut(duration: 0.15), value: isDeleting)
+                }
+            }
+            .contentShape(Rectangle())
+            .onTapGesture {
+                if !hasLoggedConflict {
+                    hasLoggedConflict = true
+                    intensity = .minor
+                    currentKnotAsset = "conflict-minor"
+                    lineColor = Color("Yellow")
+                    saveConflict()
+                    UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                }
+            }
+        }
+        .frame(height: knotLineHeight)
+    }
+
+    private var knotLineHeight: CGFloat {
+        50 + deleteThreshold + 60
+    }
+
+    private func updateIntensityFromDrag(halfTrack: CGFloat) {
+        let progress = dragOffset / halfTrack // -1 (full left) to 1 (full right)
+        let midThreshold: CGFloat = 0.45
+        let endThreshold: CGFloat = 0.85
+
+        if progress >= endThreshold {
+            // Dragged to right end → jump to severe
+            intensity = .severe
+        } else if progress >= midThreshold {
+            // Dragged to mid-right → one step up from start
+            switch dragStartIntensity {
+            case .minor: intensity = .moderate
+            case .moderate, .severe: intensity = .severe
+            }
+        } else if progress <= -endThreshold {
+            // Dragged to left end → jump to minor
+            intensity = .minor
+        } else if progress <= -midThreshold {
+            // Dragged to mid-left → one step down from start
+            switch dragStartIntensity {
+            case .severe: intensity = .moderate
+            case .moderate, .minor: intensity = .minor
+            }
+        } else {
+            // Near center → revert to starting intensity
+            intensity = dragStartIntensity
+        }
+
+        currentKnotAsset = knotAssetForIntensity(intensity)
+        lineColor = intensity.color
+    }
+
+    private func knotAssetForIntensity(_ intensity: ConflictIntensity) -> String {
+        switch intensity {
+        case .minor: return "conflict-minor"
+        case .moderate: return "conflict-moderate"
+        case .severe: return "conflict-major"
+        }
+    }
+
+    // MARK: - Page 2: Emotions
+    private var emotionPage: some View {
+        VStack(spacing: 0) {
+            if purchaseManager.isPremium {
+                unlockedEmotionTags
+            } else {
+                lockedEmotionTags
+            }
+            Spacer()
+        }
+    }
+
+    private var unlockedEmotionTags: some View {
+        let emotions = ["Anger", "Sadness", "Misunderstanding", "Disappointment", "Avoidance", "Resentment", "Neglect", "Unappreciated", "Controlled", "Blamed", "Distrust", "Hurt", "Exhausted"]
+
+        return FlowLayout(spacing: 10) {
+            ForEach(emotions, id: \.self) { emotion in
+                Button(action: {
+                    if selectedEmotions.contains(emotion) {
+                        selectedEmotions.remove(emotion)
+                    } else {
+                        selectedEmotions.insert(emotion)
+                    }
+                    saveConflict()
+                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                }) {
+                    Text(LocalizedStringKey(emotion))
+                        .font(.system(size: 15, weight: .regular))
+                        .tracking(-0.23)
+                        .foregroundColor(Color("LabelPrimary"))
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 10)
+                        .background(
+                            RoundedRectangle(cornerRadius: 20)
+                                .fill(selectedEmotions.contains(emotion) ? Color("LabelPrimary").opacity(0.1) : Color("BackgroundPrimary"))
+                        )
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 20)
+                                .stroke(selectedEmotions.contains(emotion) ? Color("LabelPrimary").opacity(0.3) : Color.clear, lineWidth: 1)
+                        )
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(.horizontal, 20)
+        .padding(.top, 24)
+    }
+
+    private var lockedEmotionTags: some View {
+        let emotions = ["Anger", "Sadness", "Misunderstanding", "Disappointment", "Avoidance", "Resentment", "Neglect", "Unappreciated", "Controlled", "Blamed", "Distrust", "Hurt", "Exhausted"]
+
+        return ZStack() {
+            FlowLayout(spacing: 10) {
+                ForEach(emotions, id: \.self) { emotion in
+                    Text(LocalizedStringKey(emotion))
+                        .font(.system(size: 15, weight: .regular))
+                        .tracking(-0.23)
+                        .foregroundColor(Color("LabelPrimary"))
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 10)
+                        .background(
+                            RoundedRectangle(cornerRadius: 20)
+                                .fill(Color("BackgroundPrimary"))
+                        )
+                }
+            }
+            .padding(.horizontal, 20)
+            .padding(.top, 24)
+            .allowsHitTesting(false)
+
+            LinearGradient(
+                stops: [
+                    .init(color: Color("BackgroundSecondary").opacity(0), location: 0),
+                    .init(color: Color("BackgroundSecondary"), location: 0.8)
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            .allowsHitTesting(false)
+
+            Button(action: { showPaywall = true }) {
+                HStack(spacing: 6) {
+                    Image(systemName: "lock.fill")
+                        .font(.system(size: 16))
+                    Text(NSLocalizedString("Unlock", comment: ""))
+                        .font(.system(size: 24, weight: .light))
+                }
+                .foregroundColor(Color("White"))
+                .padding(.horizontal, 34)
+                .frame(height: 56)
                 .background(
-                    RoundedRectangle(cornerRadius: 30)
-                        .stroke(Color(hex: "#b0b0c9"), lineWidth: 1)
+                    Capsule()
+                        .fill(Color("LabelPrimary"))
                 )
-                .padding(.horizontal, 22)
-                .padding(.top, 20)
+            }
+//            .padding(.bottom, 16)
+        }
+    }
+
+    // MARK: - Page 3: Notes
+    private var notesPage: some View {
+        VStack(spacing: 0) {
+            // Text editor
+            ZStack(alignment: .topLeading) {
+                TextEditorRepresentable(
+                    text: $draftText,
+                    placeholder: "Write someting down",
+                    characterLimit: noteAccessManager.characterLimit
+                )
+                .frame(minHeight: 110)
+                .focused($isTextEditorFocused)
+
+                if draftText.isEmpty {
+                    Text("Write someting down")
+                        .font(.system(size: 17))
+                        .tracking(-0.43)
+                        .foregroundColor(Color("LabelTertiary"))
+                        .padding(.top, 8)
+                        .padding(.leading, 10)
+                        .allowsHitTesting(false)
+                }
+            }
+            .padding(.horizontal, 24)
+            .padding(.vertical, 15)
+            .background(
+                RoundedRectangle(cornerRadius: 24)
+                    .fill(Color("BackgroundPrimary"))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 24)
+                            .stroke(Color.black.opacity(0.1), lineWidth: 1)
+                    )
+            )
+            .padding(.horizontal, 20)
+            .padding(.top, 24)
+
+            // Character counter
+            if let limit = noteAccessManager.characterLimit {
+                HStack {
+                    Spacer()
+                    Text("\(draftText.count) / \(limit)")
+                        .font(.caption)
+                        .foregroundColor(charCountColor())
+                        .padding(.trailing, 24)
+                }
+                .padding(.top, 4)
             }
 
             Spacer()
-                .frame(minHeight: 100)
         }
-        .sheet(isPresented: $isSheetPresented) {
-            NoteSheet(
-                userText: $userText,
-                isPresented: $isSheetPresented,
-                selectedEmotions: $selectedEmotions,
-                onSave: { notes in
-                    save(notes: notes)
-                }
-            )
-        }
-        .confirmationDialog(
-            "Delete this note?",
-            isPresented: $showDeleteNoteConfirmation,
-            titleVisibility: .visible
-        ) {
-            Button("Delete", role: .destructive) {
-                // Clear notes and emotions, but keep the conflict
-                userText = ""
-                selectedEmotions = []
-                save(notes: "")
-                UIImpactFeedbackGenerator(style: .rigid).impactOccurred(intensity: 0.7)
+        .onAppear {
+            draftText = userText
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                isTextEditorFocused = true
             }
-            Button("Cancel", role: .cancel) { }
-        } message: {
-            Text("The note and emotions will be deleted, but the conflict will remain.")
-        }
-        .confirmationDialog(
-            "Delete this conflict?",
-            isPresented: $showDeleteConflictConfirmation,
-            titleVisibility: .visible
-        ) {
-            Button("Delete", role: .destructive) {
-                guard let dateToDelete = dateToDelete else { return }
-                Task {
-                    do {
-                        try conflictManager.deleteConflict(for: dateToDelete)
-                        refreshUIState(for: dateToDelete)
-                        UIImpactFeedbackGenerator(style: .rigid).impactOccurred(intensity: 0.7)
-                    } catch {
-                        print("Error deleting conflict: \(error)")
-                    }
-                }
-            }
-            Button("Cancel", role: .cancel) {
-                dateToDelete = nil
-            }
-        } message: {
-            Text("This action cannot be undone.")
         }
     }
-    
+
     // MARK: - Helpers
-    
-    private func refreshUIState(for date: Date) {
+
+    private func refreshUIState() {
         if let conflict = conflicts.first(where: {
-            Calendar.current.isDate($0.date!, inSameDayAs: date)
+            Calendar.current.isDate($0.date!, inSameDayAs: initialDate)
         }) {
             intensity = ConflictIntensity(string: conflict.intensity) ?? .moderate
             userText = conflict.notes ?? ""
+            draftText = conflict.notes ?? ""
             if let emotionsString = conflict.emotions, !emotionsString.isEmpty {
                 selectedEmotions = Set(emotionsString.split(separator: ",").map(String.init))
             } else {
                 selectedEmotions = []
             }
+            hasLoggedConflict = true
+            isEditingExisting = true
+            currentKnotAsset = knotAssetForIntensity(intensity)
+            lineColor = intensity.color
         } else {
-            intensity = .moderate
+            intensity = .minor
             userText = ""
+            draftText = ""
             selectedEmotions = []
+            hasLoggedConflict = false
         }
     }
-    //
-    //    private func toggleConflict(for date: Date) {
-    //        try? conflictManager.toggleConflict(
-    //            date: date,
-    //            person: selectedPerson,
-    //            notes: userText,
-    //            intensity: intensity
-    //        )
-    //    }
-    
-    private func save(notes: String) {
+
+    private func saveConflict() {
         try? conflictManager.saveConflict(
-            date: dates[centeredIndex],
-            person: selectedPerson,
-            notes: notes,
+            date: initialDate,
+            person: "Him",
+            notes: userText,
             intensity: intensity,
             emotions: Array(selectedEmotions)
         )
-        userText = notes
     }
-    
-    private func saveIfExists() {
-        if (try? conflictManager.fetchConflict(for: dates[centeredIndex])) != nil {
-            save(notes: userText)
+
+    private func charCountColor() -> Color {
+        guard let limit = noteAccessManager.characterLimit else { return .secondary }
+        let percentage = Double(draftText.count) / Double(limit)
+        if percentage >= 1.0 { return .red }
+        if percentage >= 0.9 { return .orange }
+        return .secondary
+    }
+}
+
+// MARK: - Animatable Broken Line Shape
+struct BrokenLineShape: Shape {
+    var bendX: CGFloat
+    var bendY: CGFloat
+    var lineY: CGFloat
+    var leftX: CGFloat
+    var rightX: CGFloat
+
+    var animatableData: AnimatablePair<CGFloat, CGFloat> {
+        get { AnimatablePair(bendX, bendY) }
+        set {
+            bendX = newValue.first
+            bendY = newValue.second
         }
     }
-    
-    
-    // MARK: - Functions
+
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        path.move(to: CGPoint(x: leftX, y: lineY))
+        path.addLine(to: CGPoint(x: bendX, y: bendY))
+        path.addLine(to: CGPoint(x: rightX, y: lineY))
+        return path
+    }
+}
+
+// MARK: - Flow Layout for Emotion Tags
+struct FlowLayout: Layout {
+    var spacing: CGFloat = 10
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        let result = arrangeSubviews(proposal: proposal, subviews: subviews)
+        return result.size
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        let result = arrangeSubviews(proposal: proposal, subviews: subviews)
+        for (index, position) in result.positions.enumerated() {
+            subviews[index].place(at: CGPoint(x: bounds.minX + position.x, y: bounds.minY + position.y), proposal: .unspecified)
+        }
+    }
+
+    private func arrangeSubviews(proposal: ProposedViewSize, subviews: Subviews) -> (positions: [CGPoint], size: CGSize) {
+        let maxWidth = proposal.width ?? .infinity
+        var positions: [CGPoint] = []
+        var currentX: CGFloat = 0
+        var currentY: CGFloat = 0
+        var lineHeight: CGFloat = 0
+        var maxX: CGFloat = 0
+
+        for subview in subviews {
+            let size = subview.sizeThatFits(.unspecified)
+            if currentX + size.width > maxWidth && currentX > 0 {
+                currentX = 0
+                currentY += lineHeight + spacing
+                lineHeight = 0
+            }
+            positions.append(CGPoint(x: currentX, y: currentY))
+            lineHeight = max(lineHeight, size.height)
+            currentX += size.width + spacing
+            maxX = max(maxX, currentX)
+        }
+
+        return (positions, CGSize(width: maxX, height: currentY + lineHeight))
+    }
+}
+
+// MARK: - Date Circle View (kept for backwards compatibility)
+struct DateCircleView: View {
+    let date: Date
+    let index: Int
+    let centeredIndex: Int
+    let conflicts: FetchedResults<Conflict>
+    @Binding var selectedDateIndex: Int?
+    @Binding var scrollPosition: Int?
+    let onTap: () -> Void
+
+    private func hasConflict() -> Bool {
+        conflicts.contains { Calendar.current.isDate($0.date!, inSameDayAs: date) }
+    }
+
+    private func conflictIntensity() -> ConflictIntensity {
+        conflicts.first { Calendar.current.isDate($0.date!, inSameDayAs: date) }
+            .flatMap { ConflictIntensity(string: $0.intensity) } ?? .moderate
+    }
+
+    var body: some View {
+        ZStack {
+            Text(dayOfWeek(from: date))
+                .offset(x: 0, y: -75)
+                .font(.title)
+                .foregroundStyle(Color(hex: "#7F809E"))
+
+            ZStack {
+                let circleColor: Color = hasConflict() ? conflictIntensity().color : .clear
+                let circleText: String = {
+                    switch conflictIntensity() {
+                    case .minor: return "☹️"
+                    case .moderate: return "😡"
+                    case .severe: return "👿"
+                    }
+                }()
+
+                Circle()
+                    .fill(circleColor)
+                    .stroke(hasConflict() ? circleColor : Color(hex: "#7F809E").opacity(0.5), lineWidth: 2)
+                    .frame(width: 100, height: 100)
+
+                Text(hasConflict() ? circleText : "\(Calendar.current.component(.day, from: date))")
+                    .font(.largeTitle)
+                    .foregroundStyle(hasConflict() ? Color.white : Color(hex: "#7F809E"))
+            }
+        }
+        .contentShape(Rectangle())
+        .onTapGesture {
+            if index == centeredIndex {
+                onTap()
+                UIImpactFeedbackGenerator(style: .rigid).impactOccurred(intensity: 0.7)
+            } else {
+                withAnimation(.spring()) {
+                    scrollPosition = index
+                    selectedDateIndex = index
+                }
+            }
+        }
+        .sensoryFeedback(.impact(flexibility: .solid, intensity: 0.5), trigger: selectedDateIndex)
+    }
+
     private func dayOfWeek(from date: Date) -> String {
         let formatter = DateFormatter()
         formatter.dateFormat = "E"
         return formatter.string(from: date)
     }
-    
-    private func dayAndMonth(from date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.locale = Locale.current // Use the device's current locale
-        formatter.dateStyle = .medium // Use medium style for date (includes day and month, adapts to locale)
-        formatter.timeStyle = .none // Exclude time
-        // Optionally, customize to ensure only day and month are shown
-        formatter.setLocalizedDateFormatFromTemplate("dMMMM") // Template for day and month
-        return formatter.string(from: date)
-    }
-    private func year(from date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy"
-        return formatter.string(from: date)
-    }
-
-    private func isFutureDate(_ date: Date) -> Bool {
-        let today = Calendar.current.startOfDay(for: Date())
-        let compareDate = Calendar.current.startOfDay(for: date)
-        return compareDate > today
-    }
-
-
-
-    private func toggleConflictForDate(date: Date, index: Int) {
-        Task {
-            do {
-                // Prevent creating conflicts on future dates
-                if isFutureDate(date) {
-                    return
-                }
-
-                // If not centered, scroll to center it first
-                if index != centeredIndex {
-                    withAnimation(.spring()) {
-                        scrollPosition = index
-                    }
-                    // Wait briefly for scroll to complete and centeredIndex to update
-                    try await Task.sleep(nanoseconds: 300_000_000) // 0.3s delay
-                }
-
-                // Check if we're deleting and need confirmation
-                let existingConflict = try conflictManager.fetchConflict(for: date)
-                if existingConflict != nil {
-                    // Deleting - always show confirmation dialog for circle tap
-                    dateToDelete = date
-                    showDeleteConflictConfirmation = true
-                    UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-                    return
-                }
-
-                // Proceed with toggle (create or quick-delete)
-                try conflictManager.toggleConflict(
-                    date: date,
-                    person: selectedPerson,
-                    notes: userText,
-                    intensity: intensity,
-                    emotions: Array(selectedEmotions)
-                )
-                // Refresh UI state after toggle (FetchRequest will update conflicts)
-                refreshUIState(for: date)
-            } catch {
-                print("Error toggling conflict: \(error)")
-            }
-        }
-    }
-    
 }
-// MARK: - Date Circle View
-struct DateCircleView: View {
-let date: Date
-let index: Int
-let centeredIndex: Int
-let conflicts: FetchedResults<Conflict>
-@Binding var selectedDateIndex: Int?
-@Binding var scrollPosition: Int?
-let onTap: () -> Void
-
-private func hasConflict() -> Bool {
-    conflicts.contains { Calendar.current.isDate($0.date!, inSameDayAs: date) }
-}
-
-private func conflictIntensity() -> ConflictIntensity {
-    conflicts.first { Calendar.current.isDate($0.date!, inSameDayAs: date) }
-        .flatMap { ConflictIntensity(string: $0.intensity) } ?? .moderate
-}
-
-var body: some View {
-    ZStack {
-        Text(dayOfWeek(from: date))
-            .offset(x: 0, y: -75)
-            .font(.title)
-            .foregroundStyle(Color(hex: "#7F809E"))
-        
-        ZStack {
-            let circleColor: Color = hasConflict() ? conflictIntensity().color : .clear
-            let circleText: String = {
-                switch conflictIntensity() {
-                case .minor: return "☹️"
-                case .moderate: return "😡"
-                case .severe: return "👿"
-                }
-            }()
-            
-            // Circle
-            Circle()
-                .fill(circleColor)
-                .stroke(hasConflict() ? circleColor : Color(hex: "#7F809E").opacity(0.5), lineWidth: 2)
-                .frame(width: 100, height: 100)
-            
-            // Text
-            Text(hasConflict() ? circleText : "\(Calendar.current.component(.day, from: date))")
-                .font(.largeTitle)
-                .foregroundStyle(hasConflict() ? Color.white : Color(hex: "#7F809E"))
-        }
-    }
-    .contentShape(Rectangle())
-    .onTapGesture {
-        if index == centeredIndex {
-            onTap() // Toggle conflict
-            // Trigger haptic feedback for conflict toggle
-            UIImpactFeedbackGenerator(style: .rigid).impactOccurred(intensity: 0.7)
-        } else {
-            withAnimation(.spring()) {
-                scrollPosition = index
-                selectedDateIndex = index
-            }
-        }
-    }
-    .sensoryFeedback(.impact(flexibility: .solid, intensity: 0.5), trigger: selectedDateIndex)
-}
-
-private func dayOfWeek(from date: Date) -> String {
-    let formatter = DateFormatter()
-    formatter.dateFormat = "E"
-    return formatter.string(from: date)
-}
-}
-
 
 struct TruncatedSizeKey: PreferenceKey {
-static var defaultValue: CGSize = .zero
-static func reduce(value: inout CGSize, nextValue: () -> CGSize) {
-    value = nextValue()
-}
+    static var defaultValue: CGSize = .zero
+    static func reduce(value: inout CGSize, nextValue: () -> CGSize) {
+        value = nextValue()
+    }
 }
 
 struct FullSizeKey: PreferenceKey {
-static var defaultValue: CGSize = .zero
-static func reduce(value: inout CGSize, nextValue: () -> CGSize) {
-    value = nextValue()
-}
+    static var defaultValue: CGSize = .zero
+    static func reduce(value: inout CGSize, nextValue: () -> CGSize) {
+        value = nextValue()
+    }
 }
 
 struct LimitedText: View {
-let text: String
-let lineLimit: Int
-let font: Font
-let onViewMore: () -> Void
+    let text: String
+    let lineLimit: Int
+    let font: Font
+    let onViewMore: () -> Void
 
-@State private var truncatedSize: CGSize = .zero
-@State private var fullSize: CGSize = .zero
+    @State private var truncatedSize: CGSize = .zero
+    @State private var fullSize: CGSize = .zero
 
-var isTruncated: Bool {
-    truncatedSize.height < fullSize.height
-}
-
-var body: some View {
-    VStack(alignment: .leading, spacing: 4) {
-        ZStack(alignment: .topLeading) {
-            Text(text)
-                .font(font)
-                .lineLimit(lineLimit)
-                .background(GeometryReader { geo in
-                    Color.clear.preference(key: TruncatedSizeKey.self, value: geo.size)
-                })
-                .onPreferenceChange(TruncatedSizeKey.self) { truncatedSize = $0 }
-            
-            Text(text)
-                .font(font)
-                .lineLimit(nil)
-                .fixedSize(horizontal: false, vertical: true)
-                .hidden()
-                .background(GeometryReader { geo in
-                    Color.clear.preference(key: FullSizeKey.self, value: geo.size)
-                })
-                .onPreferenceChange(FullSizeKey.self) { fullSize = $0 }
-        }
-        
-        if isTruncated {
-            Button("View more") {
-                onViewMore()
-            }
-            .font(.subheadline)
-            .foregroundColor(.blue)
-            .frame(maxWidth: .infinity, alignment: .leading)
-        }
+    var isTruncated: Bool {
+        truncatedSize.height < fullSize.height
     }
-    .frame(maxWidth: .infinity, alignment: .topLeading)
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            ZStack(alignment: .topLeading) {
+                Text(text)
+                    .font(font)
+                    .lineLimit(lineLimit)
+                    .background(GeometryReader { geo in
+                        Color.clear.preference(key: TruncatedSizeKey.self, value: geo.size)
+                    })
+                    .onPreferenceChange(TruncatedSizeKey.self) { truncatedSize = $0 }
+
+                Text(text)
+                    .font(font)
+                    .lineLimit(nil)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .hidden()
+                    .background(GeometryReader { geo in
+                        Color.clear.preference(key: FullSizeKey.self, value: geo.size)
+                    })
+                    .onPreferenceChange(FullSizeKey.self) { fullSize = $0 }
+            }
+
+            if isTruncated {
+                Button("View more") {
+                    onViewMore()
+                }
+                .font(.subheadline)
+                .foregroundColor(.blue)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .topLeading)
+    }
 }
-}
+
 // MARK: - FullNoteView
 struct FullNoteView: View {
-let note: String
-@Environment(\.dismiss) private var dismiss
+    let note: String
+    @Environment(\.dismiss) private var dismiss
 
-var body: some View {
-    NavigationStack {
-        ScrollView {
-            Text(note)
-                .font(.title2)
-                .padding()
-                .frame(maxWidth: .infinity, alignment: .leading)
-        }
-        .navigationTitle("Note")
-        .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                Button("Done") {
-                    dismiss()
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                Text(note)
+                    .font(.title2)
+                    .padding()
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .navigationTitle("Note")
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Done") {
+                        dismiss()
+                    }
                 }
             }
         }
     }
 }
-}
+
+//// MARK: - Preview
+//#Preview {
+//    ConflictEditorView(dates: [Date()], initialDate: Date())
+//        .environment(\.managedObjectContext, PersistenceController.shared.container.viewContext)
+//        .environmentObject(ConflictManager(context: PersistenceController.shared.container.viewContext))
+//        .environmentObject(PurchaseManager.shared)
+//        .environmentObject(NoteAccessManager.shared)
+//        .preferredColorScheme(.dark)
+//}

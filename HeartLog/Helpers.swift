@@ -58,9 +58,9 @@ enum ConflictIntensity: Int, CaseIterable {
     
     var color: Color {
         switch self {
-        case .minor: return Color(hex: "#FFC35D")
-        case .moderate: return Color(hex: "#FF8D5D")
-        case .severe: return Color(hex: "#E75DFF")
+        case .minor: return Color("Yellow")
+        case .moderate: return Color("Orange")
+        case .severe: return Color("Purple")
         }
     }
     
