@@ -154,14 +154,13 @@ extension ConflictManager {
             return calendar.startOfDay(for: date)
         })
 
-        // If there's a conflict today, streak is 0
-        if conflictDates.contains(today) {
+        // Start counting from yesterday (today isn't over yet)
+        guard let startDate = calendar.date(byAdding: .day, value: -1, to: today) else {
             return 0
         }
 
-        // Count back from today
         var streakDays = 0
-        var checkDate = today
+        var checkDate = startDate
 
         while !conflictDates.contains(checkDate) {
             streakDays += 1
@@ -170,7 +169,6 @@ extension ConflictManager {
             }
             checkDate = previousDay
 
-            // Limit check to reasonable range (e.g., 1 year back)
             if streakDays > 365 {
                 break
             }

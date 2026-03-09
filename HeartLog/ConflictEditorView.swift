@@ -37,7 +37,15 @@ struct ConflictEditorView: View {
     @State private var showCharacterLimitError = false
     @State private var showUpgradePrompt = false
     @State private var showDiscardWarning = false
+    @State private var showDeleteWarning = false
+    @State private var showEmotionTip = false
     @State private var isEditingExisting: Bool = false
+
+    // Knot onboarding: 0=tap, 1=drag intensity, 2=drag delete, 3=mastered, 4=done
+    @State private var knotOnboardingStep: Int = 0
+    @State private var hasDraggedLeft: Bool = false
+    @State private var hasDraggedRight: Bool = false
+    private var isKnotOnboarding: Bool { !UserDefaults.standard.bool(forKey: "hasCompletedKnotOnboarding") }
 
     init(dates: [Date], initialDate: Date) {
         self.dates = dates
@@ -61,34 +69,25 @@ struct ConflictEditorView: View {
         VStack(spacing: 0) {
             // Shared header
             HStack {
-                // Left button
-                if currentPage > 0 {
-                    Button(action: {
-                        withAnimation(.easeInOut(duration: 0.25)) {
-                            currentPage -= 1
-                        }
-                    }) {
-                        Image(systemName: "chevron.left")
-                            .font(.system(size: 14, weight: .medium))
-                            .foregroundColor(Color("LabelPrimary"))
-                            .frame(width: 48, height: 48)
-                            .background(Color("BackgroundPrimary"))
-                            .clipShape(RoundedRectangle(cornerRadius: 20))
+                // Left button — always present, hidden on page 0
+                Button(action: {
+                    withAnimation(.easeInOut(duration: 0.25)) {
+                        currentPage -= 1
                     }
-                } else {
-                    Color.clear.frame(width: 48, height: 48)
+                }) {
+                    Image(systemName: "chevron.left")
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundColor(Color("LabelPrimary"))
+                        .frame(width: 48, height: 48)
+                        .background(Color("BackgroundPrimary"))
+                        .clipShape(RoundedRectangle(cornerRadius: 20))
                 }
+                .opacity(currentPage > 0 ? 1 : 0)
+                .disabled(currentPage == 0)
 
                 Spacer()
 
-                Text(pageTitle)
-                    .font(.system(size: 17, weight: .regular))
-                    .tracking(-0.43)
-                    .foregroundColor(Color("LabelPrimary"))
-
-                Spacer()
-
-                // Right button
+                // Right button — chevron or checkmark, always same frame
                 if currentPage < 2 {
                     Button(action: {
                         withAnimation(.easeInOut(duration: 0.25)) {
@@ -102,8 +101,9 @@ struct ConflictEditorView: View {
                             .background(Color("BackgroundPrimary"))
                             .clipShape(RoundedRectangle(cornerRadius: 20))
                     }
+                    .opacity(hasLoggedConflict ? 1 : 0)
+                    .disabled(!hasLoggedConflict)
                 } else {
-                    // Checkmark save & close button
                     Button(action: {
                         if !hasLoggedConflict {
                             if !selectedEmotions.isEmpty || !draftText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
@@ -128,21 +128,50 @@ struct ConflictEditorView: View {
                     }
                 }
             }
+            .overlay(
+                HStack(spacing: 4) {
+                    Text(pageTitle)
+                        .font(.system(size: 17, weight: .regular))
+                        .tracking(-0.43)
+                        .foregroundColor(Color("LabelPrimary"))
+
+                    if currentPage == 1 {
+                        Button(action: { showEmotionTip.toggle() }) {
+                            Image(systemName: "info.circle")
+                                .font(.system(size: 14))
+                                .foregroundColor(Color("LabelTertiary"))
+                        }
+                        .popover(isPresented: $showEmotionTip, arrowEdge: .top) {
+                            Text(NSLocalizedString("Research shows that naming your emotions — called \"affect labeling\" — reduces their intensity and helps you respond more thoughtfully. In relationships, this awareness builds empathy and clearer communication, turning conflicts into opportunities for understanding.", comment: "Emotion tagging benefit tooltip"))
+                                .font(.system(size: 14, weight: .regular))
+                                .foregroundColor(Color("LabelPrimary"))
+                                .padding(16)
+                                .frame(width: 280)
+                                .presentationCompactAdaptation(.popover)
+                        }
+                    }
+                }
+            )
+            .animation(nil, value: currentPage)
             .padding(.horizontal, 20)
             .padding(.top, 24)
 
             // Page content
-            switch currentPage {
-            case 0:
-                knotPage
-            case 1:
-                emotionPage
-            case 2:
-                notesPage
-            default:
-                knotPage
+            Group {
+                switch currentPage {
+                case 0:
+                    knotPage
+                case 1:
+                    emotionPage
+                case 2:
+                    notesPage
+                default:
+                    knotPage
+                }
             }
+            .frame(maxWidth: .infinity)
         }
+        .frame(maxWidth: .infinity)
         .presentationDetents([.medium])
         .presentationDragIndicator(.hidden)
         .presentationCornerRadius(screenCornerRadius)
@@ -150,6 +179,12 @@ struct ConflictEditorView: View {
         .clipShape(RoundedRectangle(cornerRadius: screenCornerRadius))
         .onAppear {
             refreshUIState()
+        }
+        .onDisappear {
+            if hasLoggedConflict {
+                userText = draftText
+                saveConflict()
+            }
         }
         .sheet(isPresented: $showPaywall) {
             PaywallView(feature: .emotionTags)
@@ -175,6 +210,14 @@ struct ConflictEditorView: View {
         } message: {
             Text(NSLocalizedString("You haven't logged a conflict. Your emotion tags and notes will be discarded.", comment: ""))
         }
+        .alert(NSLocalizedString("Delete this conflict?", comment: ""), isPresented: $showDeleteWarning) {
+            Button(NSLocalizedString("Delete", comment: ""), role: .destructive) {
+                performDelete()
+            }
+            Button(NSLocalizedString("Cancel", comment: ""), role: .cancel) { }
+        } message: {
+            Text(NSLocalizedString("Your emotion tags and notes will also be deleted.", comment: "Alert message when deleting a conflict that has emotions or notes"))
+        }
     }
 
     // MARK: - Page 1: Knot
@@ -182,20 +225,22 @@ struct ConflictEditorView: View {
         VStack(spacing: 0) {
             Spacer()
 
-            // Intensity label
-            if hasLoggedConflict {
-                Text(intensity.displayName)
+            // Intensity label / onboarding instructions
+            VStack(spacing: 6) {
+                Text(knotLabelText)
                     .font(.system(size: 17, weight: .regular))
                     .tracking(-0.43)
                     .foregroundColor(Color("LabelSecondary"))
-                    .padding(.bottom, 16)
-            } else {
-                Text("Tap to log a conflict")
-                    .font(.system(size: 17, weight: .regular))
-                    .tracking(-0.43)
-                    .foregroundColor(Color("LabelSecondary"))
-                    .padding(.bottom, 16)
+
+                if isKnotOnboarding && hasLoggedConflict && knotOnboardingStep >= 1 && knotOnboardingStep <= 2 {
+                    Text(intensity.displayName)
+                        .font(.system(size: 15, weight: .regular))
+                        .tracking(-0.23)
+                        .foregroundColor(Color("LabelTertiary"))
+                }
             }
+            .padding(.bottom, 16)
+                .animation(.easeInOut(duration: 0.2), value: knotLabelText)
 
             // Knot line with draggable knot
             knotLineView
@@ -260,25 +305,29 @@ struct ConflictEditorView: View {
                                     }
                                     let clampedOffset = min(max(drag.translation.width, -halfTrack), halfTrack)
                                     dragOffset = clampedOffset
-                                    verticalDragOffset = isEditingExisting ? 0 : max(0, drag.translation.height)
+                                    verticalDragOffset = (isKnotOnboarding && knotOnboardingStep == 1) ? 0 : max(0, drag.translation.height)
                                     updateIntensityFromDrag(halfTrack: halfTrack)
+
+                                    // Track drag directions for onboarding
+                                    if isKnotOnboarding && knotOnboardingStep == 1 {
+                                        let progress = clampedOffset / halfTrack
+                                        if progress <= -0.45 { hasDraggedLeft = true }
+                                        if progress >= 0.45 { hasDraggedRight = true }
+                                    }
                                 }
                                 .onEnded { _ in
                                     isDragging = false
                                     if verticalDragOffset >= deleteThreshold {
-                                        try? conflictManager.deleteConflict(for: initialDate)
-                                        withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
-                                            hasLoggedConflict = false
-                                            dragOffset = 0
-                                            verticalDragOffset = 0
-                                            intensity = .minor
-                                            selectedEmotions = []
-                                            userText = ""
-                                            draftText = ""
-                                            lineColor = Color("Green")
-                                            currentKnotAsset = "conflict-minor"
+                                        if !selectedEmotions.isEmpty || !draftText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                                            // Has emotions or notes — show warning first
+                                            withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
+                                                dragOffset = 0
+                                                verticalDragOffset = 0
+                                            }
+                                            showDeleteWarning = true
+                                        } else {
+                                            performDelete()
                                         }
-                                        UIImpactFeedbackGenerator(style: .heavy).impactOccurred()
                                     } else {
                                         saveConflict()
                                         withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
@@ -286,6 +335,10 @@ struct ConflictEditorView: View {
                                             verticalDragOffset = 0
                                             lineColor = intensity.color
                                             currentKnotAsset = knotAssetForIntensity(intensity)
+                                        }
+
+                                        if isKnotOnboarding && knotOnboardingStep == 1 && hasDraggedLeft && hasDraggedRight {
+                                            knotOnboardingStep = 2
                                         }
                                     }
                                 }
@@ -308,11 +361,20 @@ struct ConflictEditorView: View {
             .onTapGesture {
                 if !hasLoggedConflict {
                     hasLoggedConflict = true
-                    intensity = .minor
-                    currentKnotAsset = "conflict-minor"
-                    lineColor = Color("Yellow")
+                    intensity = .moderate
+                    currentKnotAsset = "conflict-moderate"
+                    lineColor = Color("Orange")
                     saveConflict()
                     UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+
+                    if isKnotOnboarding {
+                        if knotOnboardingStep == 0 {
+                            knotOnboardingStep = 1
+                        } else if knotOnboardingStep == 3 {
+                            knotOnboardingStep = 4
+                            UserDefaults.standard.set(true, forKey: "hasCompletedKnotOnboarding")
+                        }
+                    }
                 }
             }
         }
@@ -321,6 +383,27 @@ struct ConflictEditorView: View {
 
     private var knotLineHeight: CGFloat {
         50 + deleteThreshold + 60
+    }
+
+    private var knotLabelText: String {
+        if isKnotOnboarding {
+            switch knotOnboardingStep {
+            case 0:
+                return NSLocalizedString("Tap to log a conflict", comment: "")
+            case 1:
+                return NSLocalizedString("Drag left or right to adjust intensity", comment: "Onboarding hint for adjusting intensity")
+            case 2:
+                return NSLocalizedString("Drag down to delete", comment: "Onboarding hint for deleting")
+            case 3:
+                return NSLocalizedString("Great! Now start logging", comment: "Onboarding completion message")
+            default:
+                return intensity.displayName
+            }
+        }
+        if hasLoggedConflict {
+            return intensity.displayName
+        }
+        return NSLocalizedString("Tap to log a conflict", comment: "")
     }
 
     private func updateIntensityFromDrag(halfTrack: CGFloat) {
@@ -469,14 +552,14 @@ struct ConflictEditorView: View {
             ZStack(alignment: .topLeading) {
                 TextEditorRepresentable(
                     text: $draftText,
-                    placeholder: "Write someting down",
+                    placeholder: "Write something down",
                     characterLimit: noteAccessManager.characterLimit
                 )
                 .frame(minHeight: 110)
                 .focused($isTextEditorFocused)
 
                 if draftText.isEmpty {
-                    Text("Write someting down")
+                    Text("Write something down")
                         .font(.system(size: 17))
                         .tracking(-0.43)
                         .foregroundColor(Color("LabelTertiary"))
@@ -514,9 +597,6 @@ struct ConflictEditorView: View {
         }
         .onAppear {
             draftText = userText
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                isTextEditorFocused = true
-            }
         }
     }
 
@@ -555,6 +635,26 @@ struct ConflictEditorView: View {
             intensity: intensity,
             emotions: Array(selectedEmotions)
         )
+    }
+
+    private func performDelete() {
+        try? conflictManager.deleteConflict(for: initialDate)
+        withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
+            hasLoggedConflict = false
+            dragOffset = 0
+            verticalDragOffset = 0
+            intensity = .minor
+            selectedEmotions = []
+            userText = ""
+            draftText = ""
+            lineColor = Color("Green")
+            currentKnotAsset = "conflict-minor"
+        }
+        UIImpactFeedbackGenerator(style: .heavy).impactOccurred()
+
+        if isKnotOnboarding && knotOnboardingStep == 2 {
+            knotOnboardingStep = 3
+        }
     }
 
     private func charCountColor() -> Color {

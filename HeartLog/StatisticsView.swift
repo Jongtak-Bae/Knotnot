@@ -74,16 +74,30 @@ struct StatisticsView: View {
     }
 
     var body: some View {
+        Group {
+            if purchaseManager.isPremium {
+                fullStatisticsView
+            } else {
+                lockedStatisticsView
+            }
+        }
+        .background(Color("BackgroundPrimary"))
+        .navigationTitle("Statistics")
+        .navigationBarTitleDisplayMode(.inline)
+        .sheet(isPresented: $showPaywall) {
+            PaywallView(feature: .statistics)
+                .environmentObject(purchaseManager)
+        }
+    }
+
+    private var fullStatisticsView: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
-                // MARK: - Stat Cards (2x2 grid)
                 statCardsSection
 
-                // MARK: - Day of Week Pattern
                 dayOfWeekSection
                     .padding(.top, 40)
 
-                // MARK: - Monthly Conflicts
                 VStack(alignment: .leading, spacing: 16) {
                     Text(NSLocalizedString("Monthly Conflicts", comment: ""))
                         .font(.system(size: 17, weight: .semibold))
@@ -96,11 +110,9 @@ struct StatisticsView: View {
                 }
                 .padding(.top, 40)
 
-                // MARK: - Top Emotions (Premium)
                 topEmotionsSection
                     .padding(.top, 40)
 
-                // MARK: - Conflict-Free Streaks
                 VStack(alignment: .leading, spacing: 16) {
                     Text(NSLocalizedString("Conflict-Free Streaks", comment: ""))
                         .font(.system(size: 17, weight: .semibold))
@@ -116,18 +128,75 @@ struct StatisticsView: View {
                 }
                 .padding(.top, 40)
 
-                // MARK: - Notes
                 notesSection
                     .padding(.top, 40)
 
                 Spacer(minLength: 40)
             }
         }
-        .background(Color("BackgroundPrimary"))
-        .navigationTitle("Statistics")
-        .navigationBarTitleDisplayMode(.inline)
-        .sheet(isPresented: $showPaywall) {
-            PaywallView(feature: .emotionTags)
+    }
+
+    private var lockedStatisticsView: some View {
+        ZStack {
+            // Full content behind, not interactive
+            ScrollView {
+                VStack(alignment: .leading, spacing: 0) {
+                    statCardsSection
+
+                    dayOfWeekSection
+                        .padding(.top, 40)
+
+                    VStack(alignment: .leading, spacing: 16) {
+                        Text(NSLocalizedString("Monthly Conflicts", comment: ""))
+                            .font(.system(size: 17, weight: .semibold))
+                            .tracking(-0.43)
+                            .foregroundColor(Color("LabelPrimary"))
+                            .padding(.horizontal, 28)
+
+                        MonthlyConflictsChart(data: intensityData)
+                            .padding(.horizontal, 28)
+                    }
+                    .padding(.top, 40)
+
+                    Spacer(minLength: 40)
+                }
+            }
+            .scrollDisabled(true)
+            .allowsHitTesting(false)
+
+            // Gradient mask
+            VStack(spacing: 0) {
+                LinearGradient(
+                    stops: [
+                        .init(color: Color("BackgroundPrimary").opacity(0), location: 0),
+                        .init(color: Color("BackgroundPrimary"), location: 0.7)
+                    ],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+//                .frame(height: 300)
+
+//                Color("BackgroundPrimary")
+            }
+            .ignoresSafeArea()
+            .allowsHitTesting(false)
+
+            // Unlock button
+            Button(action: { showPaywall = true }) {
+                HStack(spacing: 6) {
+                    Image(systemName: "lock.fill")
+                        .font(.system(size: 16))
+                    Text(NSLocalizedString("Unlock Trends & Insights", comment: "Button to unlock premium statistics"))
+                        .font(.system(size: 24, weight: .light))
+                }
+                .foregroundColor(Color("White"))
+                .padding(.horizontal, 34)
+                .frame(height: 56)
+                .background(
+                    Capsule()
+                        .fill(Color("LabelPrimary"))
+                )
+            }
         }
     }
 
@@ -796,6 +865,9 @@ struct StreakTimelineView: View {
 struct NoteCard: View {
     let conflict: Conflict
 
+    @State private var isExpanded = false
+    @State private var isTruncated = false
+
     private var dateFormatter: DateFormatter {
         let formatter = DateFormatter()
         formatter.dateFormat = "MMM d"
@@ -808,14 +880,50 @@ struct NoteCard: View {
                 .font(.system(size: 17, weight: .regular))
                 .tracking(-0.43)
                 .foregroundColor(Color("LabelPrimary").opacity(0.7))
-                .lineLimit(3)
+                .lineLimit(isExpanded ? nil : 3)
                 .frame(maxWidth: .infinity, alignment: .leading)
+                .background(
+                    Text(conflict.notes ?? "")
+                        .font(.system(size: 17, weight: .regular))
+                        .tracking(-0.43)
+                        .lineLimit(3)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .hidden()
+                        .background(GeometryReader { truncated in
+                            Text(conflict.notes ?? "")
+                                .font(.system(size: 17, weight: .regular))
+                                .tracking(-0.43)
+                                .lineLimit(nil)
+                                .fixedSize(horizontal: false, vertical: true)
+                                .hidden()
+                                .background(GeometryReader { full in
+                                    Color.clear.onAppear {
+                                        isTruncated = full.size.height > truncated.size.height
+                                    }
+                                })
+                        })
+                )
 
-            Text(conflict.date.map { dateFormatter.string(from: $0) } ?? "")
-                .font(.system(size: 13, weight: .regular))
-                .tracking(-0.08)
-                .foregroundColor(Color("LabelPrimary").opacity(0.5))
-                .frame(maxWidth: .infinity, alignment: .trailing)
+            HStack {
+                if isTruncated {
+                    Button(action: {
+                        withAnimation(.easeInOut(duration: 0.25)) {
+                            isExpanded.toggle()
+                        }
+                    }) {
+                        Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundColor(Color("LabelTertiary"))
+                    }
+                }
+
+                Spacer()
+
+                Text(conflict.date.map { dateFormatter.string(from: $0) } ?? "")
+                    .font(.system(size: 13, weight: .regular))
+                    .tracking(-0.08)
+                    .foregroundColor(Color("LabelPrimary").opacity(0.5))
+            }
         }
         .padding(.horizontal, 24)
         .padding(.vertical, 16)

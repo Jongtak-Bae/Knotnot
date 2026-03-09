@@ -35,8 +35,9 @@ struct PersistenceController {
                     containerIdentifier: "iCloud.com.jeongpei.Knotnot"
                 )
 
-                // Enable remote change notifications
-                description?.setOption(true as NSNumber,
+                // Disable remote change notifications to reduce sync frequency.
+                // Sync will occur on app launch only.
+                description?.setOption(false as NSNumber,
                                       forKey: NSPersistentStoreRemoteChangeNotificationPostOptionKey)
             } else {
                 // Disable CloudKit sync for free users

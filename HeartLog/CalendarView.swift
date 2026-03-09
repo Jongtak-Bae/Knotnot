@@ -344,11 +344,7 @@ struct CalendarView: View {
                     // Top bar: Statistics + Settings
                     HStack {
                         Button(action: {
-                            if purchaseManager.isPremium {
-                                showStatistics = true
-                            } else {
-                                showPaywall = true
-                            }
+                            showStatistics = true
                         }) {
                             HStack(spacing: 9) {
                                 Image(systemName: "chart.bar.fill")
@@ -572,7 +568,6 @@ struct CalendarView: View {
                         )
                         .environmentObject(conflictManager)
                         .presentationBackground(Color("BackgroundSecondary"))
-                        .interactiveDismissDisabled()
                         .onAppear { lastNewConflictDate = identifiableDate.date }
                     }
 
@@ -690,6 +685,7 @@ struct CalendarView: View {
 // MARK: Conflict Detail View
 struct ConflictDetailView: View {
     @EnvironmentObject private var conflictManager: ConflictManager
+    @EnvironmentObject private var purchaseManager: PurchaseManager
     let conflict: Conflict
     let onDelete: () -> Void
     let onRefresh: () -> Void
@@ -741,19 +737,21 @@ struct ConflictDetailView: View {
                             .foregroundColor(Color("LabelPrimary"))
                     }
 
-                    // Emotions
-                    HStack(alignment: .top){
-                        Text(NSLocalizedString("Emotions:", comment: ""))
-                            .font(.headline)
-                            .foregroundColor(Color("LabelTertiary"))
-                        if let emotionsString = conflict.emotions, !emotionsString.isEmpty {
-                            Text(emotionsString.split(separator: ",").map { NSLocalizedString(String($0), comment: "") }.joined(separator: ", "))
-                                .font(.body)
-                                .foregroundColor(Color("LabelPrimary"))
-                        } else {
-                            Text(NSLocalizedString("None", comment: ""))
-                                .font(.body)
+                    // Emotions (premium only)
+                    if purchaseManager.isPremium {
+                        HStack(alignment: .top){
+                            Text(NSLocalizedString("Emotions:", comment: ""))
+                                .font(.headline)
                                 .foregroundColor(Color("LabelTertiary"))
+                            if let emotionsString = conflict.emotions, !emotionsString.isEmpty {
+                                Text(emotionsString.split(separator: ",").map { NSLocalizedString(String($0), comment: "") }.joined(separator: ", "))
+                                    .font(.body)
+                                    .foregroundColor(Color("LabelPrimary"))
+                            } else {
+                                Text(NSLocalizedString("None", comment: ""))
+                                    .font(.body)
+                                    .foregroundColor(Color("LabelTertiary"))
+                            }
                         }
                     }
                 }
@@ -791,15 +789,15 @@ struct ConflictDetailView: View {
 
                 if let notes = conflict.notes, !notes.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                     Text(notes)
-                        .font(.system(size: 15, weight: .regular))
-                        .tracking(-0.23)
+                        .font(.body)
+                        
                         .foregroundColor(Color("LabelPrimary").opacity(0.7))
                         .multilineTextAlignment(.leading)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 } else {
                     Text(NSLocalizedString("None", comment: ""))
                         .font(.body)
-                        .tracking(-0.23)
+                        
                         .foregroundColor(Color("LabelTertiary"))
                 }
             }
@@ -825,7 +823,6 @@ struct ConflictDetailView: View {
             )
             .environmentObject(conflictManager)
             .presentationBackground(Color("BackgroundSecondary"))
-            .interactiveDismissDisabled()
         }
     }
 

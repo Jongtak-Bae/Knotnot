@@ -391,13 +391,13 @@ private struct PaywallBar: View {
 }
 
 private struct PaywallCarouselEmotionTags: View {
-    private let tags = ["Sad", "Angry", "Frustrated", "Neglected", "Blamed", "Annoyed"]
+    private let tags = ["Sadness", "Anger", "Misunderstanding", "Neglect", "Blamed", "Exhausted"]
 
     var body: some View {
         VStack(spacing: 30) {
             PaywallFlowLayout(spacing: 8, lineSpacing: 16) {
                 ForEach(tags, id: \.self) { tag in
-                    Text(NSLocalizedString(tag, comment: ""))
+                    Text(LocalizedStringKey(tag))
                         .font(.system(size: 15, weight: .regular))
                         .tracking(-0.23)
                         .foregroundColor(Color("LabelPrimary"))
@@ -489,7 +489,7 @@ private struct PaywallCarouselUnlimitedNotes: View {
     var body: some View {
         VStack(spacing: 30) {
             VStack(alignment: .leading) {
-                Text("Now I can write long notes without character limit! This is helpful for journaling my thoughts and feelings and make me more aware of what's really happening")
+                Text(NSLocalizedString("Now I can write long notes without character limit! This is helpful for journaling my thoughts and feelings and make me more aware of what's really happening", comment: ""))
                     .font(.system(size: 17, weight: .regular))
                     .tracking(-0.43)
                     .foregroundColor(Color("LabelPrimary").opacity(0.7))

@@ -140,12 +140,15 @@ struct SettingsView: View {
     // MARK: - Connect Section
     private var connectSection: some View {
         VStack(spacing: 0) {
-            SettingsRow(
-                icon: "envelope.fill",
-                iconColor: Color("LabelPrimary"),
-                title: NSLocalizedString("Contact", comment: ""),
-                trailing: "peizhengze@gmail.com"
-            )
+            Link(destination: URL(string: "mailto:peizhengze@gmail.com")!) {
+                SettingsRowContent(
+                    icon: "envelope.fill",
+                    iconColor: Color("LabelPrimary"),
+                    title: NSLocalizedString("Contact", comment: ""),
+                    trailing: "peizhengze@gmail.com",
+                    showChevron: false
+                )
+            }
 
             Divider()
                 .padding(.leading, 52)
